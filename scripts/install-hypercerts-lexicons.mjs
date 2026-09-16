@@ -3,6 +3,7 @@
 import { execFileSync } from "node:child_process";
 import { createInterface } from "node:readline/promises";
 import { stdin, stdout } from "node:process";
+import { webUriSchema } from "@atproto/oauth-types";
 import { schemas } from "@hypercerts-org/lexicon/lexicons";
 
 export const COLLECTIONS = [
@@ -104,10 +105,18 @@ export const COLLECTIONS = [
 
 export function normalizeHappyViewUrl(value) {
   const trimmed = value.trim().replace(/\/+$/, "");
-  if (!/^https?:\/\//.test(trimmed)) {
-    throw new Error("HappyView URL must start with http:// or https://");
+  const result = webUriSchema.safeParse(trimmed);
+
+  if (!result.success) {
+    if (trimmed.startsWith("http://")) {
+      throw new Error(
+        "HappyView URL must use https:// unless it is a loopback address",
+      );
+    }
+    throw new Error("HappyView URL must use http:// or https://");
   }
-  return trimmed;
+
+  return result.data;
 }
 
 function buildQueryLexicon(record, query) {

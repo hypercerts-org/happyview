@@ -129,11 +129,32 @@ describe("install plan", () => {
   });
 });
 
-test("normalizes the HappyView URL", () => {
+test("normalizes HTTPS HappyView URLs", () => {
   expect(normalizeHappyViewUrl(" https://happyview.example/ ")).toBe(
     "https://happyview.example",
   );
+});
+
+test("allows HTTP only for loopback HappyView URLs", () => {
+  expect(normalizeHappyViewUrl("http://localhost:3000/")).toBe(
+    "http://localhost:3000",
+  );
+  expect(normalizeHappyViewUrl("http://127.0.0.1:3000/")).toBe(
+    "http://127.0.0.1:3000",
+  );
+  expect(normalizeHappyViewUrl("http://[::1]:3000/")).toBe(
+    "http://[::1]:3000",
+  );
+  expect(() => normalizeHappyViewUrl("http://happyview.example")).toThrow(
+    "HappyView URL must use https:// unless it is a loopback address",
+  );
+});
+
+test("rejects unsupported HappyView URL protocols", () => {
   expect(() => normalizeHappyViewUrl("happyview.example")).toThrow(
-    "HappyView URL must start with http:// or https://",
+    "HappyView URL must use http:// or https://",
+  );
+  expect(() => normalizeHappyViewUrl("ftp://happyview.example")).toThrow(
+    "HappyView URL must use http:// or https://",
   );
 });

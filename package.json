@@ -15,6 +15,7 @@
     "webpack": "5.97.1"
   },
   "devDependencies": {
+    "@atproto/oauth-types": "^0.7.6",
     "@hypercerts-org/lexicon": "1.4.0"
   }
 }
