@@ -1,11 +1,20 @@
 {
   "name": "happyview",
   "private": true,
-  "workspaces": ["packages/*"],
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "install:hypercerts-lexicons": "bun run scripts/install-hypercerts-lexicons.mjs",
+    "test:hypercerts-lexicons-installer": "bun test scripts/install-hypercerts-lexicons.test.mjs"
+  },
   "overrides": {
     "webpack": "5.97.1"
   },
   "resolutions": {
     "webpack": "5.97.1"
+  },
+  "devDependencies": {
+    "@hypercerts-org/lexicon": "1.4.0"
   }
 }
