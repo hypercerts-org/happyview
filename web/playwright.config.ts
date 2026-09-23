@@ -34,6 +34,7 @@ export default defineConfig({
         "lexicon-id-validation.spec.ts",
         "lexicon-target-collection.spec.ts",
         "lexicon-backfill.spec.ts",
+        "backfill-accounts.spec.ts",
         "script-delete.spec.ts",
         "script-job.spec.ts",
         "script-unload-guard.spec.ts",
@@ -45,7 +46,12 @@ export default defineConfig({
         "link-invite-pages.spec.ts",
         "users-add.spec.ts",
         "confidential-client.spec.ts",
+        "api-client-duplicate.spec.ts",
         "dpop-session-revocation.spec.ts",
+        // telemetry-settings was written but never listed here, so it
+        // had never actually run.
+        "telemetry-settings.spec.ts",
+        "telemetry-prompt.spec.ts",
       ],
       dependencies: ["setup"],
       use: { browserName: "chromium" },
