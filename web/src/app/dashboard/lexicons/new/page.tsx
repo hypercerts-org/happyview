@@ -48,7 +48,6 @@ export default function AddLexiconPage() {
 
   // Local state
   const [json, setJson] = useState(LEXICON_TEMPLATE);
-  const [localTargetCollection, setLocalTargetCollection] = useState("");
   const [backfill, setBackfill] = useState(true);
 
   // Network state
@@ -107,8 +106,6 @@ export default function AddLexiconPage() {
     return null;
   }, [json]);
 
-  const showLocalTargetCollection =
-    localMainType === "query" || localMainType === "procedure";
   const prevType = useRef(localMainType);
   useEffect(() => {
     if (prevType.current !== localMainType) {
@@ -231,23 +228,6 @@ export default function AddLexiconPage() {
           <TabsContent value="local" className="flex flex-col flex-1 min-h-0">
             <div className="flex flex-col flex-1 min-h-0 gap-6 p-4 pt-0 md:p-6 md:pt-0">
               {error && <p className="text-destructive text-sm">{error}</p>}
-
-              {/* Metadata fields */}
-              {/* <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {showLocalTargetCollection && (
-                  <div className="flex flex-col gap-2">
-                    <Label htmlFor="target-collection">
-                      Record Collection (optional)
-                    </Label>
-                    <Input
-                      id="target-collection"
-                      value={localTargetCollection}
-                      onChange={(e) => setLocalTargetCollection(e.target.value)}
-                      placeholder="com.example.record"
-                    />
-                  </div>
-                )}
-              </div> */}
 
               {/* Code panels */}
               <CodePanels
