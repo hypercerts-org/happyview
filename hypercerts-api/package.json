@@ -9,6 +9,8 @@
     "@atproto/syntax": "0.6.4"
   },
   "scripts": {
-    "test:unit": "node --test tooling/*.test.js"
+    "test:unit": "node --test tooling/*.test.js tests/fixtures/*.test.js tests/contracts/helpers.test.js",
+    "seed:test": "node tooling/seed.js",
+    "seed:bad-dates": "node tooling/seed.js --bad-dates"
   }
 }
