@@ -5,7 +5,7 @@ import { jsonToLex } from '@atproto/lexicon';
 import { locationRecords } from './records.js';
 
 const base = locationRecords[0];
-const did = 'did:web:bad-date-fixtures.example';
+const did = 'did:plc:baddatefixturesexamplexx';
 const collection = base.collection;
 const prefix = `at://${did}/${collection}/`;
 

@@ -21,7 +21,7 @@ test('bad-date fixtures have their own author and do not match normal fixture fi
   const normalUris = new Set(normal.map(({ uri }) => uri));
   assert.equal(new Set(badDateLocations.map(({ uri }) => uri)).size, badDateLocations.length);
   for (const row of badDateLocations) {
-    assert.equal(row.did, 'did:web:bad-date-fixtures.example');
+    assert.equal(row.did, 'did:plc:baddatefixturesexamplexx');
     assert.equal(row.uri, `at://${row.did}/${row.collection}/${row.rkey}`);
     assert.equal(normalDids.has(row.did), false);
     assert.equal(normalUris.has(row.uri), false);

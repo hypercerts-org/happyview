@@ -149,7 +149,7 @@ test('bad-date seed input uses eight parameters only for the fourteen isolated f
   assert.match(sql, /PREPARE happyview_location_fixture \(text, text, text, text, jsonb, text, text, text\)/);
   assert.match(sql, /\$7, \$8\) ON CONFLICT/);
   assert.equal((sql.match(/^EXECUTE happyview_location_fixture\(/gm) ?? []).length, 14);
-  assert.match(sql, /bad-date-fixtures\.example/);
+  assert.match(sql, /did:plc:baddatefixturesexamplexx/);
   assert.doesNotMatch(sql, /3jzfcijpj2z2a/);
   assert.match(sql, /, NULL, E'2025-01-02T03:04:05\.123456Z'\)/); // absent indexed_at is SQL NULL, not text 'null'
   const fixture = badDateLocations[0];
@@ -162,7 +162,7 @@ test('bad-date seed input uses eight parameters only for the fourteen isolated f
   }
   const normal = buildSeedInput(safeSeedEnv);
   assert.match(normal, /PREPARE happyview_location_fixture \(text, text, text, text, jsonb, text, text\)/);
-  assert.doesNotMatch(normal, /bad-date-fixtures\.example/);
+  assert.doesNotMatch(normal, /did:plc:baddatefixturesexamplexx/);
 });
 
 test('bad-date CLI is opt-in, passes eight-parameter SQL to selected executable, and rejects unknown flags', async () => {
@@ -172,10 +172,10 @@ test('bad-date CLI is opt-in, passes eight-parameter SQL to selected executable,
     const env = { ...safeSeedEnv, PSQL_PATH: selected, PATH: root, SEED_CAPTURE: capture };
     const normal = spawnSync(process.execPath, [script], { encoding: 'utf8', env });
     assert.equal(normal.status, 0, normal.stderr);
-    assert.doesNotMatch(await readFile(capture, 'utf8'), /bad-date-fixtures\.example/);
+    assert.doesNotMatch(await readFile(capture, 'utf8'), /did:plc:baddatefixturesexamplexx/);
     const bad = spawnSync(process.execPath, [script, '--bad-dates'], { encoding: 'utf8', env });
     assert.equal(bad.status, 0, bad.stderr);
-    assert.match(await readFile(capture, 'utf8'), /bad-date-fixtures\.example/);
+    assert.match(await readFile(capture, 'utf8'), /did:plc:baddatefixturesexamplexx/);
     const badSql = await readFile(capture, 'utf8');
     for (const args of [['--unknown'], ['--bad-dates', '--unexpected']]) {
       const child = spawnSync(process.execPath, [script, ...args], { encoding: 'utf8', env });
