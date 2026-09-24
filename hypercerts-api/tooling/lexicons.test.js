@@ -4,18 +4,52 @@ import { readFile } from 'node:fs/promises';
 import { locationRecords, profileRecords, organizationRecords } from '../tests/fixtures/records.js';
 import { validatePackageLexicons } from './validate-lexicons.js';
 import { readLexiconSource } from './lexicon-source.js';
+import { loadAssets } from './installer.js';
+import { fileURLToPath } from 'node:url';
 
 test('package-backed Lexicons resolve through the pinned package and install source content matches upstream', async () => {
   const manifest = JSON.parse(await readFile(new URL('../manifest.json', import.meta.url), 'utf8'));
+  const { assets } = await loadAssets(fileURLToPath(new URL('../manifest.json', import.meta.url)));
   const packageSources = manifest.validationLexicons.filter(({ packagePath }) => packagePath);
   assert.ok(packageSources.length > 0);
   for (const source of packageSources) {
     const document = await readLexiconSource(source);
     assert.equal(document.id, source.id);
-    const asset = manifest.assets.find(({ kind, id }) => kind === 'lexicon' && id === source.id);
+    const asset = assets.find(({ kind, id }) => kind === 'lexicon' && id === source.id);
     assert.ok(asset, `missing install asset ${source.id}`);
     assert.deepEqual(await readLexiconSource(asset), document);
   }
+});
+
+test('location query result refs resolve to shared actor views and getLocation-owned locationView', async () => {
+  const { lexicons, documents } = await validatePackageLexicons();
+  const byId = new Map(documents.map((document) => [document.id, document]));
+  const shared = byId.get('org.hypercerts.api.defs');
+  const getLocation = byId.get('app.certified.location.getLocation');
+  const listLocations = byId.get('app.certified.location.listLocations');
+  assert.ok(shared, 'validation sources include the shared API definitions');
+  assert.ok(getLocation, 'validation sources include getLocation');
+  assert.ok(listLocations, 'validation sources include listLocations');
+
+  assert.equal(lexicons.getDefOrThrow('org.hypercerts.api.defs#profileView').type, 'object');
+  assert.equal(lexicons.getDefOrThrow('org.hypercerts.api.defs#organizationView').type, 'object');
+  assert.equal(lexicons.getDefOrThrow('org.hypercerts.api.defs#actorView').type, 'object');
+  assert.deepEqual(shared.defs.profileView.required, ['uri', 'cid', 'indexedAt', 'did', 'record']);
+  assert.equal(shared.defs.profileView.properties.record.ref, 'lex:app.certified.actor.profile');
+  assert.deepEqual(shared.defs.organizationView.required, ['uri', 'cid', 'indexedAt', 'did', 'record']);
+  assert.equal(shared.defs.organizationView.properties.record.ref, 'lex:app.certified.actor.organization');
+  assert.deepEqual(shared.defs.actorView.required, ['did', 'profile', 'organization']);
+  assert.deepEqual(shared.defs.actorView.nullable, ['profile', 'organization']);
+  assert.equal(shared.defs.actorView.properties.profile.ref, 'lex:org.hypercerts.api.defs#profileView');
+  assert.equal(shared.defs.actorView.properties.organization.ref, 'lex:org.hypercerts.api.defs#organizationView');
+  assert.equal(shared.defs.locationView, undefined);
+
+  assert.equal(getLocation.defs.locationView.type, 'object');
+  assert.equal(getLocation.defs.locationView.properties.author.ref, 'lex:org.hypercerts.api.defs#actorView');
+  assert.equal(getLocation.defs.locationView.properties.record.ref, 'lex:app.certified.location');
+  assert.equal(getLocation.defs.output.properties.location.ref, 'lex:app.certified.location.getLocation#locationView');
+  assert.equal(listLocations.defs.output.properties.locations.items.ref, 'lex:app.certified.location.getLocation#locationView');
+  assert.equal(lexicons.getDefOrThrow('app.certified.location.getLocation#locationView').type, 'object');
 });
 
 test('installed ATProto validator accepts package language, transitive refs, and real fixture records', async () => {

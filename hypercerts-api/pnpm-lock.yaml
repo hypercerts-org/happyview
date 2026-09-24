@@ -14,6 +14,9 @@ importers:
       '@atcute/cid':
         specifier: 2.4.1
         version: 2.4.1
+      '@atproto/lexicon':
+        specifier: 0.6.2
+        version: 0.6.2
       '@atproto/syntax':
         specifier: 0.5.4
         version: 0.5.4
