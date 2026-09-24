@@ -24,7 +24,7 @@
       "type": "object",
       "required": ["locations"],
       "properties": {
-        "locations": { "type": "array", "items": { "type": "ref", "ref": "app.certified.location.defs#locationView" } },
+        "locations": { "type": "array", "items": { "type": "ref", "ref": "app.certified.location.getLocation#locationView" } },
         "cursor": { "type": "string"}
       }
     }
