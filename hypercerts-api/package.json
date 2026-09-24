@@ -9,7 +9,11 @@
     "@hypercerts-org/lexicon": "1.4.0"
   },
   "scripts": {
+    "build:lua": "node tooling/build-lua.js",
     "test:unit": "node --test tooling/*.test.js tests/fixtures/*.test.js tests/contracts/helpers.test.js",
+    "test:contracts": "node --test tests/contracts/location.contract.test.js",
+    "test:bad-dates": "node --test tests/contracts/location-bad-dates.contract.test.js",
+    "install:api": "node tooling/installer.js",
     "seed:test": "node tooling/seed.js",
     "seed:bad-dates": "node tooling/seed.js --bad-dates"
   }

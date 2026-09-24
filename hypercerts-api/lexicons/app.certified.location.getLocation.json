@@ -1,0 +1,24 @@
+{
+  "lexicon": 1,
+  "id": "app.certified.location.getLocation",
+  "defs": {
+    "main": {
+      "type": "query",
+      "description": "Public, non-personalized lookup of one indexed location record by full AT-URI. Authentication is not required.",
+      "parameters": {
+        "type": "params",
+        "required": ["uri"],
+        "properties": {
+          "uri": { "type": "string", "format": "at-uri", "description": "Full record AT-URI using a DID authority." }
+        }
+      },
+      "output": { "encoding": "application/json", "schema": { "type": "ref", "ref": "#output" } },
+      "errors": [{ "name": "RecordNotFound", "description": "No indexed location exists at this AT-URI." }]
+    },
+    "output": {
+      "type": "object",
+      "required": ["location"],
+      "properties": { "location": { "type": "ref", "ref": "app.certified.location.defs#locationView" } }
+    }
+  }
+}

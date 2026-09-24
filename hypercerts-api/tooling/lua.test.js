@@ -1,0 +1,35 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
+import { fileURLToPath } from 'node:url';
+import { spawnSync } from 'node:child_process';
+
+const root = fileURLToPath(new URL('../', import.meta.url));
+const read = (relative) => readFile(new URL(`../${relative}`, import.meta.url), 'utf8');
+
+test('checked-in Lua bundles reproduce from shared and endpoint sources', async () => {
+  const result = spawnSync(process.execPath, ['tooling/build-lua.js'], { cwd: root, encoding: 'utf8' });
+  assert.equal(result.status, 0, result.stderr);
+  const [shared, getSource, listSource, getBuilt, listBuilt] = await Promise.all([
+    read('lua/shared/location.lua'), read('lua/src/getLocation.lua'), read('lua/src/listLocations.lua'),
+    read('lua/endpoints/getLocation.lua'), read('lua/endpoints/listLocations.lua'),
+  ]);
+  assert.equal(getBuilt, `${shared.trimEnd()}\n\n${getSource}`);
+  assert.equal(listBuilt, `${shared.trimEnd()}\n\n${listSource}`);
+  assert.doesNotMatch(getBuilt, /\brequire\s*\(/);
+  assert.doesNotMatch(listBuilt, /\brequire\s*\(/);
+});
+
+test('manifest installs only built standalone handlers and records their source inputs', async () => {
+  const manifest = JSON.parse(await read('manifest.json'));
+  assert.equal(manifest.handlerStatus.getLocation, 'implemented');
+  assert.equal(manifest.handlerStatus.listLocations, 'implemented');
+  assert.equal(manifest.authentication.unresolved, false);
+  for (const name of ['getLocation', 'listLocations']) {
+    const asset = manifest.assets.find(({ id }) => id === `xrpc.query:app.certified.location.${name}`);
+    assert.equal(asset.path, `lua/endpoints/${name}.lua`);
+    assert.equal(asset.sourcePath, `lua/src/${name}.lua`);
+    assert.equal(asset.sharedSourcePath, 'lua/shared/location.lua');
+    assert.match(await read(asset.path), /function handle\(\)/);
+  }
+});

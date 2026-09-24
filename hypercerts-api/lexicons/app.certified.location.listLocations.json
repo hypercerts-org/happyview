@@ -1,0 +1,32 @@
+{
+  "lexicon": 1,
+  "id": "app.certified.location.listLocations",
+  "defs": {
+    "main": {
+      "type": "query",
+      "description": "Public, non-personalized listing of indexed location records. Authentication is not required. Array filters use repeated unbracketed keys, maximum 100 supplied values before deduplication; omission is unrestricted. Search is trimmed, maximum 2000 UTF-8 bytes, and literal case-insensitive substring matching in name or description. The handler applies limit=25 and sortDirection=desc when omitted; limit is 1..100. Results sort by a valid zoned createdAt, otherwise indexedAt (or the stored row creation time when indexedAt is absent), then URI, both in the requested direction; the opaque direction-bound cursor captures that database timestamp at UTC microsecond precision, with no snapshot guarantee. Keep other parameters unchanged between pages. Unknown parameters and repeated scalar keys are rejected.",
+      "parameters": {
+        "type": "params",
+        "properties": {
+          "authors": { "type": "array", "maxLength": 100, "items": { "type": "string", "format": "did" } },
+          "uris": { "type": "array", "description": "Full record AT-URIs using DID authorities.", "maxLength": 100, "items": { "type": "string", "format": "at-uri" } },
+          "locationTypes": { "type": "array", "description": "Exact open-string match against locationType; empty strings are values, not sentinels.", "maxLength": 100, "items": { "type": "string", "maxLength": 20 } },
+          "search": { "type": "string", "description": "Trimmed literal case-insensitive substring in name or description.", "maxLength": 2000 },
+          "limit": { "type": "integer", "description": "Page size; handler default is 25.", "minimum": 1, "maximum": 100 },
+          "cursor": { "type": "string", "description": "Opaque versioned keyset cursor bound to sortDirection." },
+          "sortDirection": { "type": "string", "description": "Sort direction; handler default is desc.", "enum": ["asc", "desc"] }
+        }
+      },
+      "output": { "encoding": "application/json", "schema": { "type": "ref", "ref": "#output" } },
+      "errors": [{ "name": "InvalidRequest", "description": "A query parameter is invalid, repeated where scalar, or unknown." }]
+    },
+    "output": {
+      "type": "object",
+      "required": ["locations"],
+      "properties": {
+        "locations": { "type": "array", "items": { "type": "ref", "ref": "app.certified.location.defs#locationView" } },
+        "cursor": { "type": "string"}
+      }
+    }
+  }
+}
