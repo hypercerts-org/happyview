@@ -1,17 +1,76 @@
-# Hypercerts API installer foundation
+# Hypercerts API for HappyView
 
-This package provides a reusable, conflict-safe HappyView admin installer, pinned Lexicon dependencies, and guarded test seeding tools. The included location records are example fixtures, not a restriction on the tooling. It does not yet include an installable manifest or Lua handlers; those are added in the dependent location API PR. Do not run `tooling/installer.js` against a target from this branch.
+This directory contains the tooling for building and testing a Hypercerts XRPC API on HappyView. It provides a reusable installer for HappyView admin assets (Lexicons and Lua scripts), pinned Hypercerts Lexicon dependencies, and test fixtures for checking record behavior. The installer lets API modules declare their assets together, install missing assets in dependency order, and refuse to overwrite assets that differ from what is already installed.
 
-Fixture CIDs are computed from stored record JSON with `@atcute/cbor` and `@atcute/cid`. If you previously seeded these fixtures, rerun the guarded seed command on the disposable test database before comparing CIDs: the blob-backed fixture's CID changed because the previous `jsonToLex` conversion added a field absent from stored JSON.
+**Current status:** This branch contains the installer and offline test tooling, not an installable API. There is no production `manifest.json` or Lua handler bundle here yet. You can run the unit tests, but do not run `tooling/installer.js` against a HappyView target from this branch.
 
-From this directory, install dependencies with `pnpm install --frozen-lockfile`, then run offline checks with `pnpm test:unit`. The default installer entry point remains `node tooling/installer.js`, but **this branch has no production `manifest.json` or Lua handlers; do not run it against a target**. The dependent API branch must supply a complete production bundle and its domain-specific completeness tests before installation on an explicitly approved HappyView target.
+## Get started
 
-The production `manifest.json` should list module manifests once; this example uses a location module:
+From `hypercerts-api/`:
+
+```sh
+pnpm install --frozen-lockfile
+pnpm test:unit
+```
+
+These checks run offline; they do not require a running HappyView instance or database. The installable API bundle and its endpoint contract tests must be supplied separately before you can install or exercise API endpoints.
+
+## How an API bundle is installed
+
+Once an API bundle supplies a root `manifest.json` and its referenced module manifests, the installer loads Lexicon and Lua script sources, checks dependencies and existing admin assets, and only writes missing assets. It skips unchanged assets and stops on conflicts so you can resolve them manually. An installation is not an all-or-nothing transaction: if a write fails, the installer reports what it already installed and what remains.
+
+```mermaid
+flowchart TD
+    Start(["Run installer"]) --> Load
+
+    subgraph S1["1. Load"]
+        Load["Read manifests and source files"] --> Valid{"All valid?"}
+    end
+
+    subgraph S2["2. Plan"]
+        Order["Sort assets by dependencies"]
+    end
+
+    subgraph S3["3. Check server"]
+        Fetch["Fetch what HappyView already has"] --> Conflict{"Any installed asset<br/>differs from ours?"}
+    end
+
+    subgraph S4["4. Install"]
+        Each["Take next asset"] --> Same{"Already identical?"}
+        Same -- Yes --> Skip["Skip it"]
+        Same -- No --> Post["Create it"]
+        Post --> OK{"Worked?"}
+        Skip --> More{"More assets?"}
+        OK -- Yes --> More
+        More -- Yes --> Each
+    end
+
+    Valid -- Yes --> Order --> Fetch
+    Conflict -- No --> Each
+    More -- No --> Done(["Print what changed<br/>and what didn't"])
+
+    Valid -- No --> Stop1["Stop: fix local files"]
+    Conflict -- Yes --> Stop2["Stop: resolve conflict by hand"]
+    OK -- No --> Stop3["Stop: report progress<br/>(no rollback)"]
+
+    classDef stop fill:#fde2e2,stroke:#c0392b,color:#7b1f1f
+    classDef done fill:#e2f5e6,stroke:#27ae60,color:#1e5631
+    class Stop1,Stop2,Stop3 stop
+    class Done done
+```
+
+The root manifest lists module manifests once:
 
 ```json
 { "modules": ["modules/shared/manifest.json", "modules/location/manifest.json"] }
 ```
 
-Each referenced module manifest has `{ "assets": [...] }` using the existing asset declarations (`id`, `kind`, `config`, optional `dependsOn`). Lexicons use `packagePath` (relative to `@hypercerts-org/lexicon`) or `path`; scripts use `path`. Local paths resolve relative to **the declaring module manifest**, not the bundle. Shared schemas belong to one module; other modules refer to their IDs in `dependsOn`. The installer combines all modules into one run, rejects duplicate IDs, missing dependencies and cycles, validates every script source, then reads all installed assets before writing any. Unchanged assets are skipped; conflicts require manual resolution. Domain-specific handler completeness belongs in domain tests, not the generic installer.
+Each module manifest declares `{ "assets": [...] }`. Assets have an `id`, `kind` (`lexicon` or `script`), `config`, and optional `dependsOn` asset IDs. Lexicons point to a `packagePath` in `@hypercerts-org/lexicon` or a local `path`; scripts use a local `path`. Local paths are relative to the **module manifest that declares them**. Declare shared assets in one module and reference their IDs from dependent modules. The installer rejects duplicate IDs, missing dependencies, cycles, and invalid source files before making admin requests.
 
-Seeding bypasses ingestion and is only for a separately approved, disposable loopback PostgreSQL test database; never use these fixtures on persistent data. `seedSql(rows, { disposableTestTarget: true })` from `tests/fixtures/records.js` produces SQL statements for supplied record rows. `buildSeedInput(env = process.env, rows = existing default example rows)` and `buildBadDateSeedInput(env = process.env, rows = badDateLocations)` from `tooling/seed.js` accept supplied rows while keeping the location examples as CLI defaults. Malformed `createdAt` test rows can be built for any record collection with `makeDateCaseRows(baseRecord, { did })` from `tests/fixtures/bad-dates.js`. Convert those rows to SQL with `badDateSeedSql(rows, { disposableTestTarget: true })` only for an approved disposable test target. The guarded `seed:bad-dates` command still seeds only location rows by default. See the dependent PR for the full install and contract-test procedure.
+With a complete bundle and an explicitly approved HappyView target, the entry point is `node tooling/installer.js`; it reads `HAPPYVIEW_BASE_URL` and `HAPPYVIEW_SESSION_COOKIE` from the environment. Do not use it until the bundle includes its production manifests, handlers, and domain-specific completeness tests.
+
+## Test fixtures (disposable databases only)
+
+The fixture tools seed records directly into PostgreSQL, bypassing HappyView ingestion. Use them **only with a separately approved, disposable loopback test database**, never persistent data. The `seed:test` and `seed:bad-dates` scripts require `HAPPYVIEW_DISPOSABLE_TEST_TARGET=YES`, a loopback `PGHOST`, a `PGDATABASE` name containing a `test` marker, and an absolute `PSQL_PATH` to a trusted `psql` executable. Standard `PGPORT` and `PGUSER` can select the test instance and user. The normal `seed:test` command seeds location, profile, and organization examples by default; `seed:bad-dates` seeds only location examples by default. Both tools also accept supplied record rows through `buildSeedInput` and `buildBadDateSeedInput` in `tooling/seed.js`.
+
+Fixture CIDs are computed from stored record JSON with `@atcute/cbor` and `@atcute/cid`. If you seeded an older version of the blob-backed fixture, reseed the **disposable test database** before comparing CIDs: the earlier `jsonToLex` conversion produced a different CID.

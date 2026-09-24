@@ -64,3 +64,29 @@ test('admin client rejects insecure remote targets before sending a request', ()
   }), /HTTPS/);
   assert.equal(called, false);
 });
+
+test('admin client preserves action and token_cost when writing lexicons', async () => {
+  const calls = [];
+  const admin = createAdminClient({
+    baseUrl: 'http://localhost:8080',
+    cookie: 'session=secret',
+    fetchImpl: async (url, options) => {
+      calls.push({ url: String(url), options });
+      return { ok: true, status: 200, json: async () => ({}) };
+    },
+  });
+  await admin.write({
+    id: 'org.example.record',
+    kind: 'lexicon',
+    config: { backfill: true, target_collection: 'org.example.record', action: 'create', token_cost: 7 },
+    lexicon_json: { lexicon: 1, id: 'org.example.record' },
+  });
+  assert.equal(calls[0].url, 'http://localhost:8080/admin/lexicons');
+  assert.deepEqual(JSON.parse(calls[0].options.body), {
+    lexicon_json: { lexicon: 1, id: 'org.example.record' },
+    backfill: true,
+    target_collection: 'org.example.record',
+    action: 'create',
+    token_cost: 7,
+  });
+});

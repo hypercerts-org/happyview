@@ -67,12 +67,31 @@ test('invalid asset entries and IDs identify the module and asset index', async 
 
 test('dependsOn must be an array of nonempty string asset IDs', async (t) => {
   const manifest = await bundle(t, { shared: {
-    assets: [{ id: 'shared.schema', kind: 'lexicon', path: 'schema.json' }], files: { 'schema.json': '{}' },
+    assets: [{ id: 'shared.schema', kind: 'lexicon', path: 'schema.json', config: {} }], files: { 'schema.json': '{"id":"shared.schema"}' },
   } });
   const moduleFile = path.join(path.dirname(manifest), 'shared/manifest.json');
   for (const dependsOn of ['shared.schema', null, [null], [''], [42]]) {
-    await writeFile(moduleFile, JSON.stringify({ assets: [{ id: 'shared.schema', kind: 'lexicon', path: 'schema.json', dependsOn }] }));
+    await writeFile(moduleFile, JSON.stringify({ assets: [{ id: 'shared.schema', kind: 'lexicon', path: 'schema.json', config: {}, dependsOn }] }));
     await assert.rejects(() => loadAssets(manifest), /Module shared\/manifest.json.*assets\[0\].*dependsOn.*array.*nonempty.*fix/i);
+  }
+});
+
+test('asset config must be a non-array object before any admin calls', async (t) => {
+  for (const [name, config] of [['absent', undefined], ['null', null], ['array', []], ['string', 'invalid'], ['number', 7]]) {
+    const asset = { id: `org.example.${name}`, kind: 'lexicon', path: 'schema.json' };
+    if (config !== undefined) asset.config = config;
+    const manifest = await bundle(t, { shared: {
+      assets: [asset], files: { 'schema.json': JSON.stringify({ id: asset.id }) },
+    } });
+    let adminCalls = 0;
+    await assert.rejects(async () => {
+      const { assets } = await loadAssets(manifest);
+      await applyAssets(assets, {
+        read: async () => { adminCalls++; return null; },
+        write: async () => { adminCalls++; },
+      });
+    }, /Module shared\/manifest.json.*assets\[0\].*config.*non-array object.*fix/i);
+    assert.equal(adminCalls, 0, `${name} config must fail before admin calls`);
   }
 });
 
@@ -85,6 +104,14 @@ test('schema-only bundle installs without location handlers or script assets', a
   const admin = client();
   assert.deepEqual(await applyAssets(assets, admin), { changed: ['org.example.shared'], unchanged: [] });
   assert.deepEqual(assets[0].lexicon_json, { lexicon: 1, id: 'org.example.shared' });
+});
+
+test('lexicon source ID must match the declared asset ID', async (t) => {
+  const manifest = await bundle(t, { shared: {
+    assets: [{ id: 'org.example.declared', kind: 'lexicon', path: 'schema.json', config: {} }],
+    files: { 'schema.json': '{"id":"org.example.different"}' },
+  } });
+  await assert.rejects(() => loadAssets(manifest), /Asset org\.example\.declared.*lexicon ID org\.example\.different.*does not match/i);
 });
 
 test('composes two domains and one shared owner with cross-module ordering and module-relative sources', async (t) => {
@@ -132,8 +159,8 @@ test('packagePath Lexicons still load from the installed package', async (t) => 
 
 test('duplicate asset IDs across modules are rejected instead of silently selecting one', async (t) => {
   const manifest = await bundle(t, {
-    alpha: { assets: [{ id: 'shared.schema', kind: 'lexicon', path: 'schema.json' }], files: { 'schema.json': '{}' } },
-    beta: { assets: [{ id: 'shared.schema', kind: 'lexicon', path: 'schema.json' }], files: { 'schema.json': '{}' } },
+    alpha: { assets: [{ id: 'shared.schema', kind: 'lexicon', path: 'schema.json', config: {} }], files: { 'schema.json': '{"id":"shared.schema"}' } },
+    beta: { assets: [{ id: 'shared.schema', kind: 'lexicon', path: 'schema.json', config: {} }], files: { 'schema.json': '{"id":"shared.schema"}' } },
   });
   await assert.rejects(() => loadAssets(manifest), /Duplicate asset shared\.schema.*alpha.*beta/);
 });
@@ -141,11 +168,11 @@ test('duplicate asset IDs across modules are rejected instead of silently select
 test('missing dependencies and cross-module cycles refuse the combined bundle before reads or writes', async (t) => {
   for (const [name, dependency, other] of [
     ['missing', 'absent', []],
-    ['cycle', 'beta.schema', [{ id: 'beta.schema', kind: 'lexicon', path: 'schema.json', dependsOn: ['alpha.schema'] }]],
+    ['cycle', 'beta.schema', [{ id: 'beta.schema', kind: 'lexicon', path: 'schema.json', config: {}, dependsOn: ['alpha.schema'] }]],
   ]) {
     const manifest = await bundle(t, {
-      alpha: { assets: [{ id: 'alpha.schema', kind: 'lexicon', path: 'schema.json', dependsOn: [dependency] }], files: { 'schema.json': '{}' } },
-      beta: { assets: other, files: { 'schema.json': '{}' } },
+      alpha: { assets: [{ id: 'alpha.schema', kind: 'lexicon', path: 'schema.json', config: {}, dependsOn: [dependency] }], files: { 'schema.json': '{"id":"alpha.schema"}' } },
+      beta: { assets: other, files: { 'schema.json': '{"id":"beta.schema"}' } },
     });
     await assert.rejects(() => loadAssets(manifest), name === 'missing' ? /Missing asset dependency.*absent/ : /cycle/);
   }
@@ -153,8 +180,8 @@ test('missing dependencies and cross-module cycles refuse the combined bundle be
 
 test('conflict in later module prevents writes in earlier modules', async (t) => {
   const manifest = await bundle(t, {
-    first: { assets: [{ id: 'first.schema', kind: 'lexicon', path: 'schema.json', config: { backfill: false } }], files: { 'schema.json': '{}' } },
-    later: { assets: [{ id: 'later.schema', kind: 'lexicon', path: 'schema.json', config: { backfill: false } }], files: { 'schema.json': '{}' } },
+    first: { assets: [{ id: 'first.schema', kind: 'lexicon', path: 'schema.json', config: { backfill: false } }], files: { 'schema.json': '{"id":"first.schema"}' } },
+    later: { assets: [{ id: 'later.schema', kind: 'lexicon', path: 'schema.json', config: { backfill: false } }], files: { 'schema.json': '{"id":"later.schema"}' } },
   });
   const { assets } = await loadAssets(manifest);
   const admin = client({ 'later.schema': { config: { backfill: true }, lexicon_json: {} } });

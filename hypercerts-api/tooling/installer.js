@@ -3,39 +3,44 @@ import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { readLexiconSource } from './lexicon-source.js';
 
-export function semanticJson(value) {
-  if (Array.isArray(value)) return value.map(semanticJson);
+export function sortJsonKeys(value) {
+  if (Array.isArray(value)) return value.map(sortJsonKeys);
   if (value && typeof value === 'object') {
     return Object.fromEntries(Object.keys(value).sort((a, b) => {
       if (a < b) return -1;
       if (a > b) return 1;
       return 0;
-    }).map((key) => [key, semanticJson(value[key])]));
+    }).map((key) => [key, sortJsonKeys(value[key])]));
   }
   return value;
 }
 
 export function compareAsset(asset, installed) {
   if (installed == null) return 'missing';
-  if (JSON.stringify(semanticJson(installed.config ?? {})) !== JSON.stringify(semanticJson(asset.config ?? {}))) return 'conflict';
-  if (asset.kind === 'lexicon' && JSON.stringify(semanticJson(installed.lexicon_json)) !== JSON.stringify(semanticJson(asset.lexicon_json))) return 'conflict';
+  if (JSON.stringify(sortJsonKeys(installed.config ?? {})) !== JSON.stringify(sortJsonKeys(asset.config ?? {}))) return 'conflict';
+  if (asset.kind === 'lexicon' && JSON.stringify(sortJsonKeys(installed.lexicon_json)) !== JSON.stringify(sortJsonKeys(asset.lexicon_json))) return 'conflict';
   if (asset.kind === 'script' && installed.body !== asset.body) return 'conflict';
   return 'unchanged';
 }
 
-export function createAdminClient({ baseUrl, cookie, fetchImpl = globalThis.fetch }) {
+function validateAdminUrl(baseUrl) {
   let target;
   try {
     target = new URL(baseUrl);
   } catch {
     throw new Error('HappyView admin URL must be a valid HTTP(S) URL');
   }
-  const hostname = target.hostname.toLowerCase().replace(/^\[|\]$/g, '');
+  const IPV6_ADDRESS_BRACKETS = /^\[|\]$/g;
+  const hostname = target.hostname.toLowerCase().replace(IPV6_ADDRESS_BRACKETS, '');
   const loopback = hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1';
   if (!['http:', 'https:'].includes(target.protocol) || target.username || target.password || (target.protocol === 'http:' && !loopback)) {
     throw new Error('HappyView admin URL must use HTTPS, or HTTP on localhost/127.0.0.1/::1, with no URL credentials');
   }
-  async function request(method, route, body) {
+  return target;
+}
+
+function createAdminRequest(target, cookie, fetchImpl) {
+  return async function request(method, route, body) {
     let response;
     try {
       response = await fetchImpl(new URL(route, target), {
@@ -50,7 +55,12 @@ export function createAdminClient({ baseUrl, cookie, fetchImpl = globalThis.fetc
     if (method === 'GET' && response.status === 404) return null;
     if (!response.ok) throw new Error(`HappyView ${method} ${route} returned HTTP ${response.status}`);
     return response.status === 204 ? null : response.json();
-  }
+  };
+}
+
+export function createAdminClient({ baseUrl, cookie, fetchImpl = globalThis.fetch }) {
+  const target = validateAdminUrl(baseUrl);
+  const request = createAdminRequest(target, cookie, fetchImpl);
   return {
     async read(asset) {
       const encoded = encodeURIComponent(asset.id);
@@ -62,7 +72,13 @@ export function createAdminClient({ baseUrl, cookie, fetchImpl = globalThis.fetc
     },
     async write(asset) {
       if (asset.kind === 'lexicon') {
-        await request('POST', '/admin/lexicons', { lexicon_json: asset.lexicon_json, backfill: asset.config.backfill, target_collection: asset.config.target_collection });
+        await request('POST', '/admin/lexicons', {
+          lexicon_json: asset.lexicon_json,
+          backfill: asset.config.backfill,
+          target_collection: asset.config.target_collection,
+          action: asset.config.action,
+          token_cost: asset.config.token_cost,
+        });
       } else {
         await request('POST', '/admin/scripts', { id: asset.id, script_type: asset.config.script_type, description: asset.config.description, body: asset.body });
       }
@@ -96,8 +112,7 @@ export function orderAssets(assets) {
   return ordered;
 }
 
-export async function applyAssets(assets, client) {
-  const ordered = orderAssets(assets);
+async function preflightAssets(ordered, client) {
   const states = [];
   for (const asset of ordered) {
     const installed = await client.read(asset);
@@ -105,6 +120,10 @@ export async function applyAssets(assets, client) {
     if (state === 'conflict') throw new Error(`Refusing ${asset.id}: unexpected installed difference; inspect and resolve manually before retrying`);
     states.push({ asset, state });
   }
+  return states;
+}
+
+async function writeMissingAssets(states, client) {
   const changed = [];
   for (let i = 0; i < states.length; i++) {
     const { asset, state } = states[i];
@@ -123,10 +142,14 @@ export async function applyAssets(assets, client) {
   return { changed, unchanged: states.filter((entry) => entry.state === 'unchanged').map(({ asset }) => asset.id) };
 }
 
-/** Load one bundle of module manifests, resolving local sources relative to each module.
- * Validates all local assets and dependencies before admin calls; returns { assets } for applyAssets.
- */
-export async function loadAssets(manifestPath) {
+export async function applyAssets(assets, client) {
+  const states = await preflightAssets(orderAssets(assets), client);
+  return writeMissingAssets(states, client);
+}
+
+// Root manifest (paths are relative to this file):
+// { "modules": ["modules/shared/manifest.json", "modules/location/manifest.json"] }
+async function readBundleManifest(manifestPath) {
   let manifest;
   try {
     manifest = JSON.parse(await readFile(manifestPath, 'utf8'));
@@ -136,6 +159,84 @@ export async function loadAssets(manifestPath) {
   if (!manifest || typeof manifest !== 'object' || Array.isArray(manifest) || !Array.isArray(manifest.modules) || manifest.modules.length === 0) {
     throw new Error(`Bundle ${manifestPath} must list at least one module manifest in modules; add a module before installing`);
   }
+  return manifest;
+}
+
+// Module manifest (asset paths are relative to this module manifest):
+// {
+//   "assets": [
+//     { "id": "org.example.schema", "kind": "lexicon", "path": "schema.json", "config": { "backfill": false } },
+//     { "id": "org.example.handler", "kind": "script", "path": "handler.lua", "config": { "script_type": "lua" }, "dependsOn": ["org.example.schema"] }
+//   ]
+// }
+async function readModuleManifest(modulePath, file) {
+  let module;
+  try {
+    module = JSON.parse(await readFile(file, 'utf8'));
+  } catch (cause) {
+    throw new Error(`Module ${modulePath} is missing or invalid (${cause.message}); check the bundle's modules list and module manifest`, { cause });
+  }
+  if (!module || typeof module !== 'object' || Array.isArray(module) || !Array.isArray(module.assets)) {
+    throw new Error(`Module ${modulePath} must declare an assets array; fix its manifest before installing`);
+  }
+  return module;
+}
+
+function validateAssetEntry(entry, modulePath, assetIndex, owners) {
+  if (!entry || typeof entry !== 'object' || Array.isArray(entry) || typeof entry.id !== 'string' || !entry.id.trim() || !['lexicon', 'script'].includes(entry.kind)) {
+    throw new Error(`Module ${modulePath} assets[${assetIndex}] needs a nonempty string id and kind lexicon or script; fix this asset before installing`);
+  }
+  if (entry.dependsOn !== undefined && (!Array.isArray(entry.dependsOn) || entry.dependsOn.some((id) => typeof id !== 'string' || !id.trim()))) {
+    throw new Error(`Module ${modulePath} assets[${assetIndex}] (${entry.id}) dependsOn must be an array of nonempty string asset IDs; fix its dependencies before installing`);
+  }
+  if (owners.has(entry.id)) {
+    throw new Error(`Duplicate asset ${entry.id} in modules ${owners.get(entry.id)} and ${modulePath}; declare it in one owner only`);
+  }
+  owners.set(entry.id, modulePath);
+  if (!entry.config || typeof entry.config !== 'object' || Array.isArray(entry.config)) {
+    throw new Error(`Module ${modulePath} assets[${assetIndex}] (${entry.id}) config must be a non-array object; fix its configuration before installing`);
+  }
+}
+
+async function loadAssetSource(asset, modulePath, root) {
+  try {
+    if (asset.kind === 'lexicon') {
+      asset.lexicon_json = await readLexiconSource(asset, root);
+      if (asset.lexicon_json?.id !== asset.id) {
+        const lexiconId = asset.lexicon_json?.id;
+        const displayedId = typeof lexiconId === 'string' ? lexiconId : JSON.stringify(lexiconId) ?? String(lexiconId);
+        throw new Error(`lexicon ID ${displayedId} does not match declared asset ID ${asset.id}`);
+      }
+    } else {
+      if (!asset.path) throw new Error('script source path is missing');
+      const source = path.resolve(root, asset.path);
+      const info = await stat(source);
+      if (!info.isFile()) throw new Error('script source is not a file');
+      asset.body = await readFile(source, 'utf8');
+      if (!asset.body.trim()) throw new Error('script source is empty');
+    }
+  } catch (cause) {
+    throw new Error(`Asset ${asset.id} in module ${modulePath}: source ${asset.path ?? asset.packagePath ?? '(unset)'} is missing, invalid or empty (${cause.message}); fix the declaration or source before installing`, { cause });
+  }
+}
+
+async function loadModuleAssets(modulePath, file, owners) {
+  const module = await readModuleManifest(modulePath, file);
+  const assets = [];
+  for (const [assetIndex, entry] of module.assets.entries()) {
+    validateAssetEntry(entry, modulePath, assetIndex, owners);
+    const asset = { ...entry };
+    await loadAssetSource(asset, modulePath, path.dirname(file));
+    assets.push(asset);
+  }
+  return assets;
+}
+
+/** Load one bundle of module manifests, resolving local sources relative to each module.
+ * Validates all local assets and dependencies before admin calls; returns { assets } for applyAssets.
+ */
+export async function loadAssets(manifestPath) {
+  const manifest = await readBundleManifest(manifestPath);
   const assets = [];
   const owners = new Map();
   for (const [moduleIndex, modulePath] of manifest.modules.entries()) {
@@ -143,44 +244,7 @@ export async function loadAssets(manifestPath) {
       throw new Error(`Bundle ${manifestPath} modules[${moduleIndex}] must be a nonempty module path; fix the modules list before installing`);
     }
     const file = path.resolve(path.dirname(manifestPath), modulePath);
-    let module;
-    try {
-      module = JSON.parse(await readFile(file, 'utf8'));
-    } catch (cause) {
-      throw new Error(`Module ${modulePath} is missing or invalid (${cause.message}); check the bundle's modules list and module manifest`, { cause });
-    }
-    if (!module || typeof module !== 'object' || Array.isArray(module) || !Array.isArray(module.assets)) {
-      throw new Error(`Module ${modulePath} must declare an assets array; fix its manifest before installing`);
-    }
-    for (const [assetIndex, entry] of module.assets.entries()) {
-      if (!entry || typeof entry !== 'object' || Array.isArray(entry) || typeof entry.id !== 'string' || !entry.id.trim() || !['lexicon', 'script'].includes(entry.kind)) {
-        throw new Error(`Module ${modulePath} assets[${assetIndex}] needs a nonempty string id and kind lexicon or script; fix this asset before installing`);
-      }
-      if (entry.dependsOn !== undefined && (!Array.isArray(entry.dependsOn) || entry.dependsOn.some((id) => typeof id !== 'string' || !id.trim()))) {
-        throw new Error(`Module ${modulePath} assets[${assetIndex}] (${entry.id}) dependsOn must be an array of nonempty string asset IDs; fix its dependencies before installing`);
-      }
-      if (owners.has(entry.id)) {
-        throw new Error(`Duplicate asset ${entry.id} in modules ${owners.get(entry.id)} and ${modulePath}; declare it in one owner only`);
-      }
-      owners.set(entry.id, modulePath);
-      const root = path.dirname(file);
-      const asset = { ...entry };
-      try {
-        if (entry.kind === 'lexicon') {
-          asset.lexicon_json = await readLexiconSource(entry, root);
-        } else {
-          if (!entry.path) throw new Error('script source path is missing');
-          const source = path.resolve(root, entry.path);
-          const info = await stat(source);
-          if (!info.isFile()) throw new Error('script source is not a file');
-          asset.body = await readFile(source, 'utf8');
-          if (!asset.body.trim()) throw new Error('script source is empty');
-        }
-      } catch (cause) {
-        throw new Error(`Asset ${entry.id} in module ${modulePath}: source ${entry.path ?? entry.packagePath ?? '(unset)'} is missing, invalid or empty (${cause.message}); fix the declaration or source before installing`, { cause });
-      }
-      assets.push(asset);
-    }
+    assets.push(...await loadModuleAssets(modulePath, file, owners));
   }
   orderAssets(assets);
   return { assets };
