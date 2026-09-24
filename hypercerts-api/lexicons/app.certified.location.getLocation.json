@@ -18,7 +18,20 @@
     "output": {
       "type": "object",
       "required": ["location"],
-      "properties": { "location": { "type": "ref", "ref": "app.certified.location.defs#locationView" } }
+      "properties": { "location": { "type": "ref", "ref": "#locationView" } }
+    },
+    "locationView": {
+      "type": "object",
+      "description": "Location record with full indexed metadata, original payload, and hydrated author.",
+      "required": ["uri", "cid", "indexedAt", "did", "author", "record"],
+      "properties": {
+        "uri": { "type": "string", "format": "at-uri" },
+        "cid": { "type": "string", "format": "cid" },
+        "indexedAt": { "type": "string", "format": "datetime" },
+        "did": { "type": "string", "format": "did" },
+        "author": { "type": "ref", "ref": "org.hypercerts.api.defs#actorView" },
+        "record": { "type": "ref", "ref": "app.certified.location" }
+      }
     }
   }
 }

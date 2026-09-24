@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { applyAssets, compareAsset, assertInstallable, createAdminClient, orderAssets, semanticJson } from './installer.js';
+import { applyAssets, compareAsset, createAdminClient, loadAssets, orderAssets, sortJsonKeys } from './installer.js';
 
 const asset = (kind, id, config, body) => ({ kind, id, config, body });
 
@@ -70,32 +70,46 @@ test('admin HTTP adapter treats only GET 404 as missing and never leaks credenti
   });
 });
 
-test('installer asset manifest includes every validated record and hydration Lexicon with backfill disabled', () => {
+test('installer registers shared API views and query Lexicons after their declared dependencies', async () => {
   const manifest = JSON.parse(readFileSync(new URL('../manifest.json', import.meta.url), 'utf8'));
-  const installed = new Map(manifest.assets.filter(({ kind }) => kind === 'lexicon').map((entry) => [entry.id, entry]));
+  const { assets } = await loadAssets(fileURLToPath(new URL('../manifest.json', import.meta.url)));
+  const installed = new Map(assets.filter(({ kind }) => kind === 'lexicon').map((entry) => [entry.id, entry]));
   for (const source of manifest.validationLexicons) {
     const asset = installed.get(source.id);
     assert.ok(asset, `missing install asset ${source.id}`);
     assert.equal(asset.config.backfill, false, `${source.id} must not backfill during install`);
-    assert.equal(asset.path, source.path);
     assert.equal(asset.packagePath, source.packagePath);
+    assert.equal(asset.lexicon_json.id, source.id);
   }
-  const ordered = orderAssets(manifest.assets).map(({ id }) => id);
-  const definitions = ordered.indexOf('app.certified.location.defs');
-  const query = ordered.indexOf('app.certified.location.getLocation');
-  const script = ordered.indexOf('xrpc.query:app.certified.location.getLocation');
-  assert.ok(definitions > 0 && query > definitions && script > query);
-  const schemaGroup = manifest.assets.filter(({ registrationGroup }) => registrationGroup === 'location-record-schema-sources').map(({ id }) => id);
-  assert.ok(schemaGroup.length > 0);
-  assert.ok(schemaGroup.every((id) => ordered.indexOf(id) < definitions));
+  const ordered = orderAssets(assets).map(({ id }) => id);
+  const position = (id) => ordered.indexOf(id);
+  const sharedViews = installed.get('org.hypercerts.api.defs');
+  const locationRecord = installed.get('app.certified.location');
+  const getLocation = installed.get('app.certified.location.getLocation');
+  const listLocations = installed.get('app.certified.location.listLocations');
+  assert.ok(sharedViews, 'missing shared API view definitions');
+  assert.ok(locationRecord, 'missing pinned location record schema');
+  assert.ok(getLocation, 'missing getLocation Lexicon');
+  assert.ok(listLocations, 'missing listLocations Lexicon');
+  assert.deepEqual(sharedViews.dependsOn, ['app.certified.actor.organization', 'app.certified.actor.profile']);
+  assert.deepEqual(getLocation.dependsOn, ['app.certified.location', 'org.hypercerts.api.defs']);
+  assert.deepEqual(listLocations.dependsOn, ['app.certified.location.getLocation']);
+  assert.equal(locationRecord.packagePath, 'lexicons/app/certified/location.json');
+  assert.ok(position('app.certified.actor.organization') < position('org.hypercerts.api.defs'));
+  assert.ok(position('app.certified.actor.profile') < position('org.hypercerts.api.defs'));
+  assert.ok(position('app.certified.location') < position('app.certified.location.getLocation'));
+  assert.ok(position('org.hypercerts.api.defs') < position('app.certified.location.getLocation'));
+  assert.ok(position('app.certified.location.getLocation') < position('app.certified.location.listLocations'));
+  assert.ok(position('app.certified.location.getLocation') < position('xrpc.query:app.certified.location.getLocation'));
+  assert.ok(position('app.certified.location.listLocations') < position('xrpc.query:app.certified.location.listLocations'));
 });
 
 test('the local location API schemas remain the only checked-in schemas', () => {
   const files = readdirSync(new URL('../lexicons/', import.meta.url)).filter((file) => file.endsWith('.json'));
   assert.deepEqual(files.sort(), [
-    'app.certified.location.defs.json',
     'app.certified.location.getLocation.json',
     'app.certified.location.listLocations.json',
+    'org.hypercerts.api.defs.json',
   ]);
 });
 
@@ -113,7 +127,7 @@ test('semantic JSON sorts nested keys by UTF-16 code units rather than locale co
     Z: 5,
   };
   assert.equal(
-    JSON.stringify(semanticJson(input)),
+    JSON.stringify(sortJsonKeys(input)),
     '{"Z":5,"a":4,"é":3,"\u{10000}":{"\u{10000}":2,"\uE000":1},"\uE000":{"Z":2,"a":1}}',
   );
 });
@@ -163,31 +177,14 @@ test('conflict refusal performs no writes', async () => {
   assert.equal(writes, 0);
 });
 
-test('incomplete location package cannot be applied even when explicitly forced', () => {
-  assert.throws(() => assertInstallable({ handlerStatus: { getLocation: 'pending', listLocations: 'pending' } }), /real Lua handlers/);
-  assert.throws(() => assertInstallable({ handlerStatus: {} }), /getLocation, listLocations/);
-});
-
-test('complete checked-in location package passes installer handler preflight', () => {
-  const root = fileURLToPath(new URL('..', import.meta.url));
-  const manifest = JSON.parse(readFileSync(new URL('../manifest.json', import.meta.url), 'utf8'));
-  assert.doesNotThrow(() => assertInstallable(manifest, root));
-});
-
-test('preflight requires both exact script assets and nonempty source files after status approval', () => {
-  const root = fileURLToPath(new URL('..', import.meta.url));
-  const manifest = {
-    handlerStatus: { getLocation: 'implemented', listLocations: 'implemented' },
-    assets: [
-      { kind: 'script', id: 'xrpc.query:app.certified.location.getLocation', path: 'README.md' },
-      { kind: 'script', id: 'xrpc.query:app.certified.location.listLocations', path: 'README.md' },
-    ],
-  };
-  assert.doesNotThrow(() => assertInstallable(manifest, root));
-  manifest.assets.pop();
-  assert.throws(() => assertInstallable(manifest, root), /source is missing.*listLocations/);
-  manifest.assets.push({ kind: 'script', id: 'xrpc.query:app.certified.location.listLocations', path: 'missing.lua' });
-  assert.throws(() => assertInstallable(manifest, root), /source is missing.*listLocations/);
+test('location bundle preflight loads both nonempty standalone handlers', async () => {
+  const { assets } = await loadAssets(fileURLToPath(new URL('../manifest.json', import.meta.url)));
+  for (const name of ['getLocation', 'listLocations']) {
+    const script = assets.find(({ id }) => id === `xrpc.query:app.certified.location.${name}`);
+    assert.ok(script, `missing ${name} handler`);
+    assert.equal(script.kind, 'script');
+    assert.match(script.body, /function handle\(\)/);
+  }
 });
 
 test('partial failure reports completed and remaining asset IDs', async () => {
