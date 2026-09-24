@@ -1,5 +1,5 @@
-import { cidForLex } from '@atproto/lex-cbor';
-import { jsonToLex } from '@atproto/lexicon';
+import { encode } from '@atcute/cbor';
+import * as CID from '@atcute/cid';
 
 const collections = {
   location: 'app.certified.location',
@@ -12,7 +12,7 @@ const indexedAt = '2025-01-02T03:04:05.000Z';
 async function row(collection, rkey, fields, recordDid = did) {
   const record = { $type: collection, ...fields };
   const uri = `at://${recordDid}/${collection}/${rkey}`;
-  const cid = (await cidForLex(jsonToLex(record))).toString();
+  const cid = CID.toString(await CID.create(0x71, encode(record)));
   return { uri, did: recordDid, collection, rkey, cid, indexedAt, record };
 }
 

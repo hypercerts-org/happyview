@@ -1,7 +1,7 @@
 // Deliberately invalid record dates: use only with an explicitly disposable PostgreSQL test target.
 // These bypass normal Lexicon validation and must never be added to records.js or routine seeding.
-import { cidForLex } from '@atproto/lex-cbor';
-import { jsonToLex } from '@atproto/lexicon';
+import { encode } from '@atcute/cbor';
+import * as CID from '@atcute/cid';
 import { locationRecords } from './records.js';
 
 const base = locationRecords[0];
@@ -33,7 +33,7 @@ export const badDateLocations = await Promise.all(cases.map(async ([rkey, create
   return {
     uri: prefix + rkey, did, collection, rkey, record, indexedAt,
     storedAt: '2025-01-02T03:04:05.123456Z',
-    cid: (await cidForLex(jsonToLex(record))).toString(),
+    cid: CID.toString(await CID.create(0x71, encode(record))),
   };
 }));
 
