@@ -67,7 +67,9 @@ The root manifest lists module manifests once:
 
 Each module manifest declares `{ "assets": [...] }`. Assets have an `id`, `kind` (`lexicon` or `script`), `config`, and optional `dependsOn` asset IDs. Lexicons point to a `packagePath` in `@hypercerts-org/lexicon` or a local `path`; scripts use a local `path`. Local paths are relative to the **module manifest that declares them**. Declare shared assets in one module and reference their IDs from dependent modules. The installer rejects duplicate IDs, missing dependencies, cycles, and invalid source files before making admin requests.
 
-With a complete bundle and an explicitly approved HappyView target, the entry point is `node tooling/installer.js`; it reads `HAPPYVIEW_BASE_URL` and `HAPPYVIEW_SESSION_COOKIE` from the environment. Do not use it until the bundle includes its production manifests, handlers, and domain-specific completeness tests.
+With a complete bundle and an explicitly approved HappyView target, the entry point is `node tooling/installer.js`. Set `HAPPYVIEW_BASE_URL` and `HAPPYVIEW_ADMIN_TOKEN` in the environment. The installer sends `Authorization: Bearer <token>`; session-cookie authentication is not supported. Remote targets must use HTTPS; HTTP is allowed only on `localhost`, `127.0.0.1`, or `::1`. URL credentials and HTTP redirects are rejected.
+
+The admin API key must have `lexicons:read` and `lexicons:create` for lexicon assets. If the bundle includes scripts, it also needs `scripts:read` and `scripts:manage`. If a manifest requests backfill for a new record lexicon, `backfill:create` is additionally needed to start that job; without it, the lexicon is still uploaded but no backfill starts. Do not use the installer until the bundle includes its production manifests, handlers, and domain-specific completeness tests.
 
 ## Test fixtures (disposable databases only)
 
