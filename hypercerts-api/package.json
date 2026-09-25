@@ -1,10 +1,11 @@
 {
-  "name": "@happyview/hypercerts-api-test-kit",
+  "name": "@happyview/hypercerts-api-kit",
   "private": true,
   "type": "module",
   "dependencies": {
     "@atcute/cbor": "2.3.2",
     "@atcute/cid": "2.4.1",
+    "@atproto/syntax": "0.5.4",
     "@hypercerts-org/lexicon": "1.4.0"
   },
   "scripts": {

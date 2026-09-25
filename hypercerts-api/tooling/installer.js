@@ -17,7 +17,9 @@ export function sortJsonKeys(value) {
 
 export function compareAsset(asset, installed) {
   if (installed == null) return 'missing';
-  if (JSON.stringify(sortJsonKeys(installed.config ?? {})) !== JSON.stringify(sortJsonKeys(asset.config ?? {}))) return 'conflict';
+  const declaredConfig = asset.config ?? {};
+  const installedConfig = Object.fromEntries(Object.keys(declaredConfig).map((key) => [key, installed.config?.[key]]));
+  if (JSON.stringify(sortJsonKeys(installedConfig)) !== JSON.stringify(sortJsonKeys(declaredConfig))) return 'conflict';
   if (asset.kind === 'lexicon' && JSON.stringify(sortJsonKeys(installed.lexicon_json)) !== JSON.stringify(sortJsonKeys(asset.lexicon_json))) return 'conflict';
   if (asset.kind === 'script' && installed.body !== asset.body) return 'conflict';
   return 'unchanged';

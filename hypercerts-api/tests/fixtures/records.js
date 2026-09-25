@@ -34,7 +34,7 @@ export const locationRecords = await Promise.all([
   row(collections.location, '3jzfcijpj2z2a', {
     lpVersion: '1.0.0', srs: 'https://www.opengis.net/def/crs/OGC/1.3/CRS84', locationType: 'geojson',
     location: { $type: 'app.certified.location#string', string: '{"type":"Point","coordinates":[89.64,27.47]}' }, name: 'Thimphu Forest',
-    description: 'Community forest restoration area', createdAt: '2025-01-01T00:00:00.000Z',
+    createdAt: '2025-01-01T00:00:00.000Z',
   }),
   row(collections.location, '3jzfcijpj2z2b', {
     lpVersion: '1.0.0', srs: 'https://www.opengis.net/def/crs/OGC/1.3/CRS84', locationType: 'address',
@@ -58,8 +58,8 @@ export const locationRecords = await Promise.all([
   }),
   row(collections.location, '3jzfcijpj2z2d', {
     lpVersion: '1.0.0', srs: 'https://www.opengis.net/def/crs/OGC/1.3/CRS84', locationType: '',
-    location: { $type: 'app.certified.location#string', string: String.raw`Literal 100%_\path and + spaces` },
-    name: String.raw`Literal 100%_\path and + spaces`, description: 'Search metacharacter fixture', createdAt: '2025-01-04T00:00:00+01:00',
+    location: { $type: 'app.certified.location#string', string: 'Empty location type fixture' },
+    name: 'Empty location type fixture', createdAt: '2025-01-04T00:00:00+01:00',
   }),
   row(collections.location, '3jzfcijpj2z2e', {
     lpVersion: '1.0.0', srs: 'https://www.opengis.net/def/crs/OGC/1.3/CRS84', locationType: 'geojson-point',

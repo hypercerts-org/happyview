@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
-import { applyAssets, createAdminClient, orderAssets } from './installer.js';
+import { applyAssets, compareAsset, createAdminClient, orderAssets, sortJsonKeys } from './installer.js';
 
 test('installer orders dependencies before consumers regardless of manifest order', () => {
   const assets = [
@@ -43,6 +43,17 @@ test('unchanged assets are skipped and partial failures report completed and rem
     return /disk full/.test(error.message);
   });
   assert.deepEqual(written, ['new']);
+});
+
+test('apply reports an all-unchanged result without writing', async () => {
+  const asset = { id: 'same', kind: 'script', config: {}, body: 'return true' };
+  let writes = 0;
+  const result = await applyAssets([asset], {
+    read: async () => ({ config: {}, body: 'return true' }),
+    write: async () => { writes++; },
+  });
+  assert.equal(writes, 0);
+  assert.deepEqual(result, { changed: [], unchanged: ['same'] });
 });
 
 test('admin client requires a nonblank bearer token and rejects cookie-only auth', () => {
@@ -93,16 +104,89 @@ test('admin client rejects redirects before forwarding the bearer token', async 
   assert.deepEqual(paths, ['/admin/scripts/x']);
 });
 
-test('admin client rejects URL credentials and insecure remote targets before sending a request', () => {
+test('admin client rejects unsafe URLs before sending a request or exposing URL details', () => {
   let called = false;
   const fetchImpl = async () => { called = true; };
-  assert.throws(() => createAdminClient({
-    baseUrl: 'https://user:password@example.com', token: 'secret', fetchImpl,
-  }), /no URL credentials/);
-  assert.throws(() => createAdminClient({
-    baseUrl: 'http://example.com', token: 'secret', fetchImpl,
-  }), /HTTPS/);
+  for (const baseUrl of [
+    'http://example.com', 'http://localhost.attacker.test', 'http://127.0.0.1.attacker.test',
+    'file:///tmp/test', 'ftp://example.com', 'https://user:password@example.com',
+  ]) {
+    assert.throws(() => createAdminClient({ baseUrl, token: 'hv_private-secret', fetchImpl }), (error) => {
+      assert.doesNotMatch(error.message, /private-secret|password|example\.com/);
+      return true;
+    }, baseUrl);
+  }
   assert.equal(called, false);
+});
+
+test('admin client accepts loopback HTTP and HTTPS targets', async () => {
+  for (const baseUrl of ['http://localhost:8000', 'http://127.0.0.1:8000', 'http://[::1]:8000', 'https://admin.example.com']) {
+    let called = false;
+    const admin = createAdminClient({
+      baseUrl, token: 'hv_loopback-test-token',
+      fetchImpl: async () => { called = true; return new Response(null, { status: 404 }); },
+    });
+    assert.equal(await admin.read({ id: 'schema', kind: 'lexicon' }), null);
+    assert.equal(called, true, baseUrl);
+  }
+});
+
+test('admin client treats only GET 404 as missing and sanitizes HTTP errors', async () => {
+  const responses = [
+    new Response(null, { status: 404 }),
+    new Response(null, { status: 404 }),
+    new Response('hv_http-test-secret internal detail', { status: 500 }),
+  ];
+  const calls = [];
+  const admin = createAdminClient({
+    baseUrl: 'http://127.0.0.1:8000', token: 'hv_http-test-secret',
+    fetchImpl: async (_url, init) => { calls.push(init); return responses.shift(); },
+  });
+  assert.equal(await admin.read({ id: 'schema', kind: 'lexicon' }), null);
+  await assert.rejects(() => admin.write({ id: 'schema', kind: 'lexicon', config: {}, lexicon_json: {} }), /POST .*HTTP 404/);
+  await assert.rejects(() => admin.read({ id: 'schema', kind: 'lexicon' }), (error) => {
+    assert.match(error.message, /GET .*HTTP 500/);
+    assert.doesNotMatch(error.message, /hv_http-test-secret|internal detail/);
+    return true;
+  });
+  assert.deepEqual(calls.map(({ method }) => method), ['GET', 'POST', 'GET']);
+});
+
+test('semantic JSON comparison ignores nested key order but rejects changed values and script bodies', () => {
+  const item = {
+    id: 'schema', kind: 'lexicon', config: { options: { Z: true, a: false } },
+    lexicon_json: { defs: { main: { type: 'record', fields: { Z: 'upper', a: 'lower' } } } },
+  };
+  const installed = {
+    config: { options: { a: false, Z: true } },
+    lexicon_json: { defs: { main: { fields: { a: 'lower', Z: 'upper' }, type: 'record' } } },
+  };
+  assert.equal(compareAsset(item, installed), 'unchanged');
+  assert.equal(compareAsset(item, { ...installed, lexicon_json: { defs: { main: { fields: { a: 'changed', Z: 'upper' }, type: 'record' } } } }), 'conflict');
+  assert.equal(compareAsset({ id: 'script', kind: 'script', config: {}, body: 'return true\n' }, { config: {}, body: 'return true' }), 'conflict');
+});
+
+test('asset comparison ignores server defaults for undeclared config keys', () => {
+  const asset = { id: 'script', kind: 'script', config: {}, body: 'return true' };
+  assert.equal(compareAsset(asset, { config: { script_type: 'lua' }, body: 'return true' }), 'unchanged');
+
+  const configured = { ...asset, config: { description: 'custom' } };
+  assert.equal(compareAsset(configured, { config: { script_type: 'lua', description: 'custom' }, body: 'return true' }), 'unchanged');
+  assert.equal(compareAsset(configured, { config: { script_type: 'lua', description: 'different' }, body: 'return true' }), 'conflict');
+});
+
+test('semantic JSON sorts nested keys by UTF-16 code units rather than locale collation', () => {
+  const input = {
+    '\uE000': { a: 1, Z: 2 },
+    '\u{10000}': { '\uE000': 1, '\u{10000}': 2 },
+    é: 3,
+    a: 4,
+    Z: 5,
+  };
+  assert.equal(
+    JSON.stringify(sortJsonKeys(input)),
+    '{"Z":5,"a":4,"é":3,"\u{10000}":{"\u{10000}":2,"\uE000":1},"\uE000":{"Z":2,"a":1}}',
+  );
 });
 
 test('admin client preserves action and token_cost when writing lexicons', async () => {

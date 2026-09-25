@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import * as CID from '@atcute/cid';
+import { isValidDid, isValidTid } from '@atproto/syntax';
 import { locationRecords, profileRecords, organizationRecords, seedSql } from './records.js';
 
 test('fixtures have consistent full AT-URIs, valid DID/TID/CID identifiers, types, and fixed timestamps', () => {
@@ -8,6 +9,8 @@ test('fixtures have consistent full AT-URIs, valid DID/TID/CID identifiers, type
   for (const row of records) {
     assert.equal(row.uri, `at://${row.did}/${row.collection}/${row.rkey}`);
     assert.equal(row.record.$type, row.collection);
+    assert.equal(isValidDid(row.did), true);
+    if (row.collection === 'app.certified.location') assert.equal(isValidTid(row.rkey), true);
     const cid = CID.fromString(row.cid);
     assert.equal(cid.version, 1);
     assert.equal(cid.codec, 0x71);
