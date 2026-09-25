@@ -9,10 +9,19 @@ const root = fileURLToPath(new URL('../', import.meta.url));
 const read = (relative) => readFile(new URL(`../${relative}`, import.meta.url), 'utf8');
 
 test('checked-in Lua bundles reproduce from shared and endpoint sources', async () => {
+  const [shared, getSource, listSource, getBeforeBuild, listBeforeBuild] = await Promise.all([
+    read('lua/shared/location.lua'), read('lua/src/getLocation.lua'), read('lua/src/listLocations.lua'),
+    readFile(new URL('../lua/endpoints/getLocation.lua', import.meta.url)),
+    readFile(new URL('../lua/endpoints/listLocations.lua', import.meta.url)),
+  ]);
+  const expectedGet = Buffer.from(`${shared.trimEnd()}\n\n${getSource}`);
+  const expectedList = Buffer.from(`${shared.trimEnd()}\n\n${listSource}`);
+  assert.deepEqual(getBeforeBuild, expectedGet, 'getLocation bundle is stale; run pnpm build:lua');
+  assert.deepEqual(listBeforeBuild, expectedList, 'listLocations bundle is stale; run pnpm build:lua');
+
   const result = spawnSync(process.execPath, ['tooling/build-lua.js'], { cwd: root, encoding: 'utf8' });
   assert.equal(result.status, 0, result.stderr);
-  const [shared, getSource, listSource, getBuilt, listBuilt] = await Promise.all([
-    read('lua/shared/location.lua'), read('lua/src/getLocation.lua'), read('lua/src/listLocations.lua'),
+  const [getBuilt, listBuilt] = await Promise.all([
     read('lua/endpoints/getLocation.lua'), read('lua/endpoints/listLocations.lua'),
   ]);
   assert.equal(getBuilt, `${shared.trimEnd()}\n\n${getSource}`);
@@ -23,6 +32,22 @@ test('checked-in Lua bundles reproduce from shared and endpoint sources', async 
   assert.doesNotMatch(listBuilt, /local function get_location\(\)/);
   assert.doesNotMatch(getBuilt, /\brequire\s*\(/);
   assert.doesNotMatch(listBuilt, /\brequire\s*\(/);
+});
+
+test('endpoint-specific query functions and filters stay with their respective sources', async () => {
+  const [shared, getSource, listSource] = await Promise.all([
+    read('lua/shared/location.lua'), read('lua/src/getLocation.lua'), read('lua/src/listLocations.lua'),
+  ]);
+
+  assert.match(getSource, /local function query_location\(/);
+  assert.doesNotMatch(listSource, /local function query_location\(/);
+  assert.doesNotMatch(shared, /local function query_location\(/);
+  for (const name of ['query_locations', 'array', 'valid_datetime', 'add_in', 'cursor_encode', 'cursor_decode']) {
+    const declaration = new RegExp(`local function ${name}\\(`);
+    assert.match(listSource, declaration);
+    assert.doesNotMatch(getSource, declaration);
+    assert.doesNotMatch(shared, declaration);
+  }
 });
 
 test('manifest installs only built standalone handlers and records their source inputs', async () => {

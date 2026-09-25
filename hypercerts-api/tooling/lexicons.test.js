@@ -30,6 +30,7 @@ test('location query result refs resolve to shared actor views and getLocation-o
   assert.ok(shared, 'validation sources include the shared API definitions');
   assert.ok(getLocation, 'validation sources include getLocation');
   assert.ok(listLocations, 'validation sources include listLocations');
+  assert.equal(Object.hasOwn(listLocations.defs.main.parameters.properties, 'search'), false, 'listLocations must not expose a search parameter');
 
   assert.equal(lexicons.getDefOrThrow('org.hypercerts.api.defs#profileView').type, 'object');
   assert.equal(lexicons.getDefOrThrow('org.hypercerts.api.defs#organizationView').type, 'object');
