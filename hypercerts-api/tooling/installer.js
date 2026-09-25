@@ -39,13 +39,13 @@ function validateAdminUrl(baseUrl) {
   return target;
 }
 
-function createAdminRequest(target, cookie, fetchImpl) {
+function createAdminRequest(target, token, fetchImpl) {
   return async function request(method, route, body) {
     let response;
     try {
       response = await fetchImpl(new URL(route, target), {
         method,
-        headers: { cookie, ...(body === undefined ? {} : { 'content-type': 'application/json' }) },
+        headers: { Authorization: `Bearer ${token}`, ...(body === undefined ? {} : { 'content-type': 'application/json' }) },
         ...(body === undefined ? {} : { body: JSON.stringify(body) }),
         redirect: 'error',
       });
@@ -58,9 +58,12 @@ function createAdminRequest(target, cookie, fetchImpl) {
   };
 }
 
-export function createAdminClient({ baseUrl, cookie, fetchImpl = globalThis.fetch }) {
+export function createAdminClient({ baseUrl, token, fetchImpl = globalThis.fetch }) {
+  if (typeof token !== 'string' || !token.trim()) {
+    throw new Error('HAPPYVIEW_ADMIN_TOKEN is required and must not be blank; set it before running the installer (see hypercerts-api/README.md)');
+  }
   const target = validateAdminUrl(baseUrl);
-  const request = createAdminRequest(target, cookie, fetchImpl);
+  const request = createAdminRequest(target, token.trim(), fetchImpl);
   return {
     async read(asset) {
       const encoded = encodeURIComponent(asset.id);
@@ -252,15 +255,17 @@ export async function loadAssets(manifestPath) {
 
 function requiredEnv(name) {
   const value = process.env[name];
-  if (!value) throw new Error(`${name} is required; see hypercerts-api/README.md`);
-  return value;
+  if (typeof value !== 'string' || !value.trim()) {
+    throw new Error(`${name} is required and must not be blank; set it before running the installer (see hypercerts-api/README.md)`);
+  }
+  return value.trim();
 }
 
 async function main() {
-  const { assets } = await loadAssets(fileURLToPath(new URL('../manifest.json', import.meta.url)));
   const baseUrl = new URL(requiredEnv('HAPPYVIEW_BASE_URL'));
-  const cookie = requiredEnv('HAPPYVIEW_SESSION_COOKIE');
-  const client = createAdminClient({ baseUrl, cookie });
+  const token = requiredEnv('HAPPYVIEW_ADMIN_TOKEN');
+  const client = createAdminClient({ baseUrl, token });
+  const { assets } = await loadAssets(fileURLToPath(new URL('../manifest.json', import.meta.url)));
   const result = await applyAssets(assets, client);
   console.log(JSON.stringify(result, null, 2));
 }
