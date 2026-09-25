@@ -9,9 +9,9 @@
     "listLocations": "implemented"
   },
   "authentication": {
-    "decision": "public-non-personalized",
+    "decision": "public",
     "unresolved": false,
-    "note": "Both endpoints expose public record reads without personalization and require no caller authentication."
+    "note": "Both endpoints expose public record reads and require no caller authentication."
   },
   "luaBuild": {
     "command": "pnpm build:lua",
