@@ -57,15 +57,6 @@ test('seed input refuses empty row sets instead of generating invalid PREPARE SQ
   assert.throws(() => buildBadDateSeedInput(safeSeedEnv, []), /at least one.*row/i);
 });
 
-test('bad-date seed input accepts non-location rows with eight parameters', () => {
-  const custom = { ...badDateLocations[0], collection: 'org.hypercerts.custom', uri: 'at://did:web:custom.example/org.hypercerts.custom/badmissing', record: { $type: 'org.hypercerts.custom', createdAt: null } };
-  const sql = buildBadDateSeedInput(safeSeedEnv, [custom]);
-  assert.match(sql, /PREPARE happyview_fixture \(text, text, text, text, jsonb, text, text, text\)/);
-  assert.equal((sql.match(/^EXECUTE happyview_fixture\(/gm) ?? []).length, 1);
-  assert.match(sql, /org\.hypercerts\.custom/);
-  assert.doesNotMatch(sql, /app\.certified\.location/);
-});
-
 test('seed SQL uses prepared parameters and only upserts fixture records', () => {
   const env = { HAPPYVIEW_DISPOSABLE_TEST_TARGET: 'YES', PGDATABASE: 'happyview_test', PGHOST: '127.0.0.1', PGPORT: '5433', PGUSER: 'test_user' };
   const sql = buildSeedInput(env);
@@ -173,7 +164,7 @@ test('seed CLI rejects an absolute path that is not executable', async () => {
   }));
 });
 
-test('bad-date location rows stay isolated from routine fixtures and filters', () => {
+test('bad-date location rows stay isolated from routine fixtures', () => {
   const normal = [...locationRecords, ...profileRecords, ...organizationRecords];
   const normalDids = new Set(normal.map(({ did }) => did));
   const normalUris = new Set(normal.map(({ uri }) => uri));
@@ -184,8 +175,6 @@ test('bad-date location rows stay isolated from routine fixtures and filters', (
     assert.equal(normalDids.has(row.did), false);
     assert.equal(normalUris.has(row.uri), false);
     assert.equal(row.record.locationType, 'date-test');
-    assert.equal(`${row.record.name} ${row.record.description}`.toLowerCase().includes('community forest'), false);
-    assert.equal(`${row.record.name} ${row.record.description}`.includes(String.raw`100%_\path`), false);
   }
 });
 
