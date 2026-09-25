@@ -4,7 +4,7 @@
   "defs": {
     "main": {
       "type": "query",
-      "description": "Public, non-personalized lookup of one indexed location record by full AT-URI. Authentication is not required.",
+      "description": "Public lookup of one indexed location record by full AT-URI. Authentication is not required.",
       "parameters": {
         "type": "params",
         "required": ["uri"],

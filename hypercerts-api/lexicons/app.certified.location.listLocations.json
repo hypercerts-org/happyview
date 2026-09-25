@@ -4,7 +4,7 @@
   "defs": {
     "main": {
       "type": "query",
-      "description": "Public, non-personalized listing of indexed location records. Authentication is not required. Array filters use repeated unbracketed keys, maximum 100 supplied values before deduplication; omission is unrestricted. Search is trimmed, maximum 2000 UTF-8 bytes, and literal case-insensitive substring matching in name or description. The handler applies limit=25 and sortDirection=desc when omitted; limit is 1..100. Results sort by a valid zoned createdAt, otherwise indexedAt (or the stored row creation time when indexedAt is absent), then URI, both in the requested direction; the opaque direction-bound cursor captures that database timestamp at UTC microsecond precision, with no snapshot guarantee. Keep other parameters unchanged between pages. Unknown parameters and repeated scalar keys are rejected.",
+      "description": "Public listing of indexed location records. Authentication is not required. Array filters use repeated unbracketed keys, maximum 100 supplied values before deduplication; omission is unrestricted. Search is trimmed, maximum 2000 UTF-8 bytes, and literal case-insensitive substring matching in name or description. The handler applies limit=25 and sortDirection=desc when omitted; limit is 1..100. Results sort by a valid zoned createdAt, otherwise indexedAt (or the stored row creation time when indexedAt is absent), then URI, both in the requested direction; the opaque direction-bound cursor captures that database timestamp at UTC microsecond precision, with no snapshot guarantee. Keep other parameters unchanged between pages. Unknown parameters and repeated scalar keys are rejected.",
       "parameters": {
         "type": "params",
         "properties": {

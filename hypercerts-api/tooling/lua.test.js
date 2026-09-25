@@ -17,6 +17,10 @@ test('checked-in Lua bundles reproduce from shared and endpoint sources', async 
   ]);
   assert.equal(getBuilt, `${shared.trimEnd()}\n\n${getSource}`);
   assert.equal(listBuilt, `${shared.trimEnd()}\n\n${listSource}`);
+  assert.match(getBuilt, /local function get_location\(\)/);
+  assert.doesNotMatch(getBuilt, /local function list_locations\(\)/);
+  assert.match(listBuilt, /local function list_locations\(\)/);
+  assert.doesNotMatch(listBuilt, /local function get_location\(\)/);
   assert.doesNotMatch(getBuilt, /\brequire\s*\(/);
   assert.doesNotMatch(listBuilt, /\brequire\s*\(/);
 });
