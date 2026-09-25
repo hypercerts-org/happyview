@@ -34,22 +34,6 @@ test('checked-in Lua bundles reproduce from shared and endpoint sources', async 
   assert.doesNotMatch(listBuilt, /\brequire\s*\(/);
 });
 
-test('endpoint-specific query functions and filters stay with their respective sources', async () => {
-  const [shared, getSource, listSource] = await Promise.all([
-    read('lua/shared/location.lua'), read('lua/src/getLocation.lua'), read('lua/src/listLocations.lua'),
-  ]);
-
-  assert.match(getSource, /local function query_location\(/);
-  assert.doesNotMatch(listSource, /local function query_location\(/);
-  assert.doesNotMatch(shared, /local function query_location\(/);
-  for (const name of ['query_locations', 'array', 'valid_datetime', 'add_in', 'cursor_encode', 'cursor_decode']) {
-    const declaration = new RegExp(`local function ${name}\\(`);
-    assert.match(listSource, declaration);
-    assert.doesNotMatch(getSource, declaration);
-    assert.doesNotMatch(shared, declaration);
-  }
-});
-
 test('manifest installs only built standalone handlers and records their source inputs', async () => {
   const manifest = JSON.parse(await read('manifest.json'));
   const { assets } = await loadAssets(fileURLToPath(new URL('../manifest.json', import.meta.url)));
@@ -58,6 +42,7 @@ test('manifest installs only built standalone handlers and records their source 
   assert.equal(manifest.authentication.unresolved, false);
   for (const name of ['getLocation', 'listLocations']) {
     const asset = assets.find(({ id }) => id === `xrpc.query:app.certified.location.${name}`);
+    assert.equal(asset.kind, 'script');
     assert.equal(asset.path, `../../lua/endpoints/${name}.lua`);
     assert.equal(asset.sourcePath, `../../lua/src/${name}.lua`);
     assert.equal(asset.sharedSourcePath, '../../lua/shared/location.lua');

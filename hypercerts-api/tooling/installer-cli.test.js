@@ -5,6 +5,29 @@ import { copyFile, mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { resolveInstallConfig } from './installer.js';
+
+test('installer prompts for missing URL and token, hiding the token input', async () => {
+  const prompts = [];
+  const answers = ['https://happyview.example', 'hv_admin-token'];
+  const config = await resolveInstallConfig({
+    env: {},
+    isTTY: true,
+    ask: async (label, { hidden }) => {
+      prompts.push({ label, hidden });
+      return answers.shift();
+    },
+  });
+
+  assert.deepEqual(config, {
+    baseUrl: 'https://happyview.example',
+    token: 'hv_admin-token',
+  });
+  assert.deepEqual(prompts, [
+    { label: 'HappyView URL', hidden: false },
+    { label: 'HappyView admin token', hidden: true },
+  ]);
+});
 
 test('CLI requires a nonblank admin token and does not fall back to a session cookie', () => {
   const script = fileURLToPath(new URL('./installer.js', import.meta.url));
