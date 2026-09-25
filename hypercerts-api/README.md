@@ -16,6 +16,24 @@ pnpm test:unit
 
 These checks run offline; they do not require a running HappyView instance or database. `build:lua` builds the standalone location handlers in `lua/endpoints/`. The bundle combines local API Lexicons and scripts with schemas from the pinned `@hypercerts-org/lexicon` package. HTTP contract tests require an installed bundle and a separately approved disposable target.
 
+## Bootstrap a running HappyView instance
+
+After those offline checks pass, run this from `hypercerts-api/` to install the bundle on an approved, running HappyView instance. Unlike the checks above, this command contacts the instance and uploads assets.
+
+For an interactive run, start the installer and enter the requested URL and admin token when prompted. Token input is hidden. Any nonblank values already set in the environment are used, and the installer prompts only for missing values.
+
+```sh
+pnpm install:api
+```
+
+For a noninteractive run, provide both values in the environment:
+
+```sh
+HAPPYVIEW_BASE_URL='https://your-happyview.example' \
+HAPPYVIEW_ADMIN_TOKEN='<scoped-admin-token>' \
+pnpm install:api
+```
+
 ## How an API bundle is installed
 
 Once an API bundle supplies a root `manifest.json` and its referenced module manifests, the installer loads Lexicon and Lua script sources, checks dependencies and existing admin assets, and only writes missing assets. It skips unchanged assets and stops on conflicts so you can resolve them manually. An installation is not an all-or-nothing transaction: if a write fails, the installer reports what it already installed and what remains.
@@ -68,13 +86,7 @@ The root manifest lists module manifests once:
 
 Each module manifest declares `{ "assets": [...] }`. Assets have an `id`, `kind` (`lexicon` or `script`), `config`, and optional `dependsOn` asset IDs. Lexicons point to a `packagePath` in `@hypercerts-org/lexicon` or a local `path`; scripts use a local `path`. Local paths are relative to the **module manifest that declares them**. Declare shared assets in one module and reference their IDs from dependent modules. The installer rejects duplicate IDs, missing dependencies, cycles, and invalid source files before making admin requests.
 
-After building, run the installer only against an explicitly approved HappyView target. Set `HAPPYVIEW_BASE_URL` and `HAPPYVIEW_ADMIN_TOKEN`; the installer sends `Authorization: Bearer <token>` and does not support session-cookie authentication.
-
-```sh
-HAPPYVIEW_BASE_URL=http://127.0.0.1:8000 \
-HAPPYVIEW_ADMIN_TOKEN='<scoped-admin-token>' \
-pnpm install:api
-```
+The bootstrap command above should target only an explicitly approved HappyView instance. It sends `Authorization: Bearer <token>`; session-cookie authentication is not supported.
 
 The token must have `lexicons:read` and `lexicons:create` for lexicon assets. If the bundle includes scripts, it also needs `scripts:read` and `scripts:manage`. If a manifest requests backfill for a new record lexicon, `backfill:create` is additionally needed to start that job; without it, the lexicon is still uploaded but no backfill starts. Remote targets must use HTTPS; HTTP is allowed only on `localhost`, `127.0.0.1`, or `::1`. URL credentials and HTTP redirects are rejected. Resolve installed-asset conflicts manually. The location handlers and fixtures require PostgreSQL.
 

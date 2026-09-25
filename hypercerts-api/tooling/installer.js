@@ -1,5 +1,6 @@
 import { readFile, stat } from 'node:fs/promises';
 import path from 'node:path';
+import readline from 'node:readline';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { readLexiconSource } from './lexicon-source.js';
 
@@ -255,17 +256,78 @@ export async function loadAssets(manifestPath) {
   return { assets };
 }
 
-function requiredEnv(name) {
-  const value = process.env[name];
-  if (typeof value !== 'string' || !value.trim()) {
-    throw new Error(`${name} is required and must not be blank; set it before running the installer (see hypercerts-api/README.md)`);
+function askOnTerminal(label, { hidden = false } = {}) {
+  return new Promise((resolve, reject) => {
+    const rl = readline.createInterface({
+      input: process.stdin,
+      output: process.stdout,
+      terminal: true,
+    });
+
+    if (hidden) {
+      // Readline echoes keypresses through this hook; keep the token off stdout.
+      const writeToOutput = rl._writeToOutput.bind(rl);
+      let promptWritten = false;
+      rl._writeToOutput = (text) => {
+        if (!promptWritten) {
+          promptWritten = true;
+          writeToOutput(text);
+        } else if (text.includes('\n') || text.includes('\r')) {
+          writeToOutput(text);
+        }
+      };
+    }
+
+    let settled = false;
+    rl.once('close', () => {
+      if (settled) return;
+      settled = true;
+      reject(new Error(`${label} prompt ended unexpectedly; rerun in a terminal or set its environment variable`));
+    });
+    rl.once('SIGINT', () => {
+      if (settled) return;
+      settled = true;
+      rl.close();
+      reject(new Error(`${label} prompt was cancelled; rerun the installer to try again`));
+    });
+    rl.question(`${label}: `, (answer) => {
+      if (settled) return;
+      settled = true;
+      rl.close();
+      resolve(answer);
+    });
+  });
+}
+
+export async function resolveInstallConfig({
+  env = process.env,
+  isTTY = Boolean(process.stdin.isTTY && process.stdout.isTTY),
+  ask = askOnTerminal,
+} = {}) {
+  async function resolveValue(name, label, { hidden = false } = {}) {
+    const configured = typeof env[name] === 'string' ? env[name].trim() : '';
+    if (configured) return configured;
+
+    if (!isTTY) {
+      throw new Error(`${name} is required and must not be blank; set it in the environment or run the installer in an interactive terminal (see hypercerts-api/README.md)`);
+    }
+
+    const value = await ask(label, { hidden });
+    if (typeof value !== 'string' || !value.trim()) {
+      throw new Error(`${name} is required and must not be blank; enter a value at the prompt or set it in the environment (see hypercerts-api/README.md)`);
+    }
+    return value.trim();
   }
-  return value.trim();
+
+  return {
+    baseUrl: await resolveValue('HAPPYVIEW_BASE_URL', 'HappyView URL'),
+    token: await resolveValue('HAPPYVIEW_ADMIN_TOKEN', 'HappyView admin token', { hidden: true }),
+  };
 }
 
 async function main() {
-  const baseUrl = new URL(requiredEnv('HAPPYVIEW_BASE_URL'));
-  const token = requiredEnv('HAPPYVIEW_ADMIN_TOKEN');
+  const { baseUrl: rawBaseUrl, token } = await resolveInstallConfig();
+  const baseUrl = new URL(rawBaseUrl);
   const client = createAdminClient({ baseUrl, token });
   const { assets } = await loadAssets(fileURLToPath(new URL('../manifest.json', import.meta.url)));
   const result = await applyAssets(assets, client);
