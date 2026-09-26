@@ -10,10 +10,12 @@ From `hypercerts-api/`:
 
 ```sh
 pnpm install --frozen-lockfile
-pnpm test:unit
+pnpm check
 ```
 
-These checks run offline; they do not require a running HappyView instance or database. The installable API bundle and its endpoint contract tests must be supplied separately before you can install or exercise API endpoints.
+`pnpm check` runs the JavaScript and Lua lint checks, then the offline unit tests. These checks do not require a running HappyView instance or database. The installable API bundle and its endpoint contract tests must be supplied separately before you can install or exercise API endpoints.
+
+ESLint is installed with the package dependencies. It uses ESLint's recommended checks plus strict equality, no implicit coercion, no shadowed names, no reassigned parameters, no `var`, and `const` where possible. Console output is allowed only in CLI tooling. When a branch contains Lua scripts, Luacheck checks the generated handlers in `lua/endpoints/`; it rejects unknown globals and unused arguments, allowing only HappyView's `db`, `json`, `params`, `toarray`, and `handle`. It targets Lua 5.4 and skips line-length checks for long SQL expressions. Install Lua 5.4 and LuaRocks, then run `luarocks --lua-version=5.4 --local install luacheck 1.2.0` to enable that check locally. The lint runner also finds the default `~/.luarocks/bin` install if it is not on `PATH`. On this foundation-only branch, which has no Lua files, the Lua check reports that it is skipped. If Lua sources exist but generated handlers are missing, run `pnpm build:lua` first.
 
 ## How an API bundle is installed
 

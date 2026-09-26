@@ -203,6 +203,7 @@ function validateAssetEntry(entry, modulePath, assetIndex, owners) {
   }
 }
 
+/* eslint-disable no-param-reassign -- the caller passes a private copy to populate with its loaded source. */
 async function loadAssetSource(asset, modulePath, root) {
   try {
     if (asset.kind === 'lexicon') {
@@ -224,6 +225,7 @@ async function loadAssetSource(asset, modulePath, root) {
     throw new Error(`Asset ${asset.id} in module ${modulePath}: source ${asset.path ?? asset.packagePath ?? '(unset)'} is missing, invalid or empty (${cause.message}); fix the declaration or source before installing`, { cause });
   }
 }
+/* eslint-enable no-param-reassign */
 
 async function loadModuleAssets(modulePath, file, owners) {
   const module = await readModuleManifest(modulePath, file);

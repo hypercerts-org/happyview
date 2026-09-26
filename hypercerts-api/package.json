@@ -9,8 +9,17 @@
     "@hypercerts-org/lexicon": "1.4.0"
   },
   "scripts": {
+    "lint:js": "eslint --max-warnings=0 .",
+    "lint:lua": "node tooling/lint-lua.js",
+    "lint": "pnpm run lint:js && pnpm run lint:lua",
+    "check": "pnpm run lint && pnpm run test:unit",
     "test:unit": "node --test tooling/*.test.js tests/fixtures/*.test.js tests/contracts/helpers.test.js",
     "seed:test": "node tooling/seed.js",
     "seed:bad-dates": "node tooling/seed.js --bad-dates"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.11.0",
+    "globals": "^17.12.0"
   }
 }

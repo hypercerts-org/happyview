@@ -59,7 +59,7 @@ function configuredPsqlPath(env) {
     if (!statSync(executable).isFile()) throw new Error('not a regular file');
     accessSync(executable, constants.X_OK);
   } catch (error) {
-    throw new Error(`PSQL_PATH must point to an existing executable file (${executable}): ${error.message}`);
+    throw new Error(`PSQL_PATH must point to an existing executable file (${executable}): ${error.message}`, { cause: error });
   }
   return executable;
 }
