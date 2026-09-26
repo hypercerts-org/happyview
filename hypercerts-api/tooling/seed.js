@@ -3,14 +3,8 @@ import { accessSync, constants, statSync } from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { seedSql, locationRecords, profileRecords, organizationRecords } from '../tests/fixtures/records.js';
-import { makeDateCaseRows, badDateSeedSql } from '../tests/fixtures/bad-dates.js';
-
-export const badDateLocations = await makeDateCaseRows(locationRecords[0], {
-  did: 'did:plc:baddatefixturesexamplexx',
-  decorateRecord: (record, rkey) => ({
-    ...record, locationType: 'date-test', name: `Date test ${rkey}`, description: 'Synthetic timestamp fixture',
-  }),
-});
+import { badDateSeedSql } from '../tests/fixtures/bad-dates.js';
+import { badDateLocations } from '../tests/fixtures/bad-location-dates.js';
 
 function disposableTarget(env) {
   if (env.HAPPYVIEW_DISPOSABLE_TEST_TARGET !== 'YES') throw new Error('Set HAPPYVIEW_DISPOSABLE_TEST_TARGET=YES only after confirming this is a disposable test database');

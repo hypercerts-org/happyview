@@ -1,0 +1,37 @@
+{
+  "lexicon": 1,
+  "id": "app.certified.location.getLocation",
+  "defs": {
+    "main": {
+      "type": "query",
+      "description": "Public lookup of one indexed location record by full AT-URI. Authentication is not required.",
+      "parameters": {
+        "type": "params",
+        "required": ["uri"],
+        "properties": {
+          "uri": { "type": "string", "format": "at-uri", "description": "Full record AT-URI using a DID authority." }
+        }
+      },
+      "output": { "encoding": "application/json", "schema": { "type": "ref", "ref": "#output" } },
+      "errors": [{ "name": "RecordNotFound", "description": "No indexed location exists at this AT-URI." }]
+    },
+    "output": {
+      "type": "object",
+      "required": ["location"],
+      "properties": { "location": { "type": "ref", "ref": "#locationView" } }
+    },
+    "locationView": {
+      "type": "object",
+      "description": "Location record with full indexed metadata, original payload, and hydrated author.",
+      "required": ["uri", "cid", "indexedAt", "did", "author", "record"],
+      "properties": {
+        "uri": { "type": "string", "format": "at-uri" },
+        "cid": { "type": "string", "format": "cid" },
+        "indexedAt": { "type": "string", "format": "datetime" },
+        "did": { "type": "string", "format": "did" },
+        "author": { "type": "ref", "ref": "org.hypercerts.api.defs#actorView" },
+        "record": { "type": "ref", "ref": "app.certified.location" }
+      }
+    }
+  }
+}

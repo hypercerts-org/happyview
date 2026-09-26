@@ -5,11 +5,16 @@
   "dependencies": {
     "@atcute/cbor": "2.3.2",
     "@atcute/cid": "2.4.1",
+    "@atproto/lexicon": "0.6.2",
     "@atproto/syntax": "0.5.4",
     "@hypercerts-org/lexicon": "1.4.0"
   },
   "scripts": {
-    "test:unit": "node --test tooling/*.test.js tests/fixtures/*.test.js tests/contracts/helpers.test.js",
+    "build:lua": "node tooling/build-lua.js",
+    "test:unit": "node --test tooling/*.test.js tests/fixtures/*.test.js tests/contracts/helpers.test.js tests/contracts/location-filters.test.js",
+    "test:contracts": "node --test tests/contracts/location.contract.test.js",
+    "test:bad-dates": "node --test tests/contracts/location-bad-dates.contract.test.js",
+    "install:api": "node tooling/installer.js",
     "seed:test": "node tooling/seed.js",
     "seed:bad-dates": "node tooling/seed.js --bad-dates"
   }

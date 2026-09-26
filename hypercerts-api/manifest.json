@@ -1,0 +1,167 @@
+{
+  "name": "hypercerts-location-api",
+  "collection": "app.certified.location",
+  "targetHappyViewRevision": "a2f347e605d7cd9c11669b320e43c10dbfe982e3",
+  "runtimeCompatibility": "pending-runtime-validation",
+  "status": "handlers-implemented-runtime-validation-pending",
+  "handlerStatus": {
+    "getLocation": "implemented",
+    "listLocations": "implemented"
+  },
+  "authentication": {
+    "decision": "public",
+    "unresolved": false,
+    "note": "Both endpoints expose public record reads and require no caller authentication."
+  },
+  "luaBuild": {
+    "command": "pnpm build:lua",
+    "sharedSource": "lua/shared/location.lua",
+    "endpointSources": ["lua/src/getLocation.lua", "lua/src/listLocations.lua"],
+    "installedHandlers": "lua/endpoints/"
+  },
+  "validationLexicons": [
+    {
+      "id": "app.certified.location",
+      "packagePath": "lexicons/app/certified/location.json"
+    },
+    {
+      "id": "org.hypercerts.api.defs",
+      "path": "lexicons/org.hypercerts.api.defs.json"
+    },
+    {
+      "id": "app.certified.location.getLocation",
+      "path": "lexicons/app.certified.location.getLocation.json"
+    },
+    {
+      "id": "app.certified.location.listLocations",
+      "path": "lexicons/app.certified.location.listLocations.json"
+    },
+    {
+      "id": "app.certified.actor.profile",
+      "packagePath": "lexicons/app/certified/actor/profile.json"
+    },
+    {
+      "id": "app.certified.actor.organization",
+      "packagePath": "lexicons/app/certified/actor/organization.json"
+    },
+    {
+      "id": "app.bsky.richtext.facet",
+      "packagePath": "lexicons/app/bsky/richtext/facet.json"
+    },
+    {
+      "id": "app.certified.signature.defs",
+      "packagePath": "lexicons/app/certified/signature/defs.json"
+    },
+    {
+      "id": "com.atproto.repo.strongRef",
+      "packagePath": "lexicons/com/atproto/repo/strongRef.json"
+    },
+    {
+      "id": "org.hypercerts.defs",
+      "packagePath": "lexicons/org/hypercerts/defs.json"
+    },
+    {
+      "id": "pub.leaflet.blocks.blockquote",
+      "packagePath": "lexicons/pub/leaflet/blocks/blockquote.json"
+    },
+    {
+      "id": "pub.leaflet.blocks.bskyPost",
+      "packagePath": "lexicons/pub/leaflet/blocks/bskyPost.json"
+    },
+    {
+      "id": "pub.leaflet.blocks.button",
+      "packagePath": "lexicons/pub/leaflet/blocks/button.json"
+    },
+    {
+      "id": "pub.leaflet.blocks.code",
+      "packagePath": "lexicons/pub/leaflet/blocks/code.json"
+    },
+    {
+      "id": "pub.leaflet.blocks.header",
+      "packagePath": "lexicons/pub/leaflet/blocks/header.json"
+    },
+    {
+      "id": "pub.leaflet.blocks.horizontalRule",
+      "packagePath": "lexicons/pub/leaflet/blocks/horizontalRule.json"
+    },
+    {
+      "id": "pub.leaflet.blocks.html",
+      "packagePath": "lexicons/pub/leaflet/blocks/html.json"
+    },
+    {
+      "id": "pub.leaflet.blocks.iframe",
+      "packagePath": "lexicons/pub/leaflet/blocks/iframe.json"
+    },
+    {
+      "id": "pub.leaflet.blocks.image",
+      "packagePath": "lexicons/pub/leaflet/blocks/image.json"
+    },
+    {
+      "id": "pub.leaflet.blocks.imageGallery",
+      "packagePath": "lexicons/pub/leaflet/blocks/imageGallery.json"
+    },
+    {
+      "id": "pub.leaflet.blocks.math",
+      "packagePath": "lexicons/pub/leaflet/blocks/math.json"
+    },
+    {
+      "id": "pub.leaflet.blocks.membersOnlyDelimiter",
+      "packagePath": "lexicons/pub/leaflet/blocks/membersOnlyDelimiter.json"
+    },
+    {
+      "id": "pub.leaflet.blocks.orderedList",
+      "packagePath": "lexicons/pub/leaflet/blocks/orderedList.json"
+    },
+    {
+      "id": "pub.leaflet.blocks.page",
+      "packagePath": "lexicons/pub/leaflet/blocks/page.json"
+    },
+    {
+      "id": "pub.leaflet.blocks.poll",
+      "packagePath": "lexicons/pub/leaflet/blocks/poll.json"
+    },
+    {
+      "id": "pub.leaflet.blocks.postsList",
+      "packagePath": "lexicons/pub/leaflet/blocks/postsList.json"
+    },
+    {
+      "id": "pub.leaflet.blocks.signup",
+      "packagePath": "lexicons/pub/leaflet/blocks/signup.json"
+    },
+    {
+      "id": "pub.leaflet.blocks.standardSitePost",
+      "packagePath": "lexicons/pub/leaflet/blocks/standardSitePost.json"
+    },
+    {
+      "id": "pub.leaflet.blocks.standardSitePublication",
+      "packagePath": "lexicons/pub/leaflet/blocks/standardSitePublication.json"
+    },
+    {
+      "id": "pub.leaflet.blocks.text",
+      "packagePath": "lexicons/pub/leaflet/blocks/text.json"
+    },
+    {
+      "id": "pub.leaflet.blocks.unorderedList",
+      "packagePath": "lexicons/pub/leaflet/blocks/unorderedList.json"
+    },
+    {
+      "id": "pub.leaflet.blocks.website",
+      "packagePath": "lexicons/pub/leaflet/blocks/website.json"
+    },
+    {
+      "id": "pub.leaflet.pages.linearDocument",
+      "packagePath": "lexicons/pub/leaflet/pages/linearDocument.json"
+    },
+    {
+      "id": "pub.leaflet.richtext.facet",
+      "packagePath": "lexicons/pub/leaflet/richtext/facet.json"
+    },
+    {
+      "id": "pub.leaflet.theme.color",
+      "packagePath": "lexicons/pub/leaflet/theme/color.json"
+    }
+  ],
+  "modules": [
+    "modules/location/manifest.json"
+  ]
+}
