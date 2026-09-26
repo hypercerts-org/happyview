@@ -78,7 +78,7 @@ test('seed SQL E-escapes fixture backslashes and apostrophes', () => {
       PGHOST: '127.0.0.1',
     });
     assert.ok(sql.includes("E'"));
-    assert.ok(sql.includes(`\"name\":\"O''Brien ${'\\\\'.repeat(4)}woods\"`));
+    assert.ok(sql.includes(`"name":"O''Brien ${'\\\\'.repeat(4)}woods"`));
   } finally {
     fixture.record.name = originalName;
   }

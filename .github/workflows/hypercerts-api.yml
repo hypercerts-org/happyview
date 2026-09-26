@@ -1,0 +1,49 @@
+name: Hypercerts API checks
+
+on:
+  pull_request:
+    paths:
+      - "hypercerts-api/**"
+      - ".github/workflows/hypercerts-api.yml"
+  push:
+    branches: [main, dev]
+    paths:
+      - "hypercerts-api/**"
+      - ".github/workflows/hypercerts-api.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: hypercerts-api
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: leafo/gh-actions-lua@v10
+        with:
+          luaVersion: "5.4"
+
+      - uses: leafo/gh-actions-luarocks@v4
+
+      - name: Install Luacheck
+        run: luarocks install luacheck 1.2.0
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.15.1
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: hypercerts-api/pnpm-lock.yaml
+
+      - name: Install Node dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint and test
+        run: pnpm check
