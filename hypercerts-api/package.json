@@ -1,0 +1,16 @@
+{
+  "name": "@happyview/hypercerts-api-kit",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@atcute/cbor": "2.3.2",
+    "@atcute/cid": "2.4.1",
+    "@atproto/syntax": "0.5.4",
+    "@hypercerts-org/lexicon": "1.4.0"
+  },
+  "scripts": {
+    "test:unit": "node --test tooling/*.test.js tests/fixtures/*.test.js tests/contracts/helpers.test.js",
+    "seed:test": "node tooling/seed.js",
+    "seed:bad-dates": "node tooling/seed.js --bad-dates"
+  }
+}
