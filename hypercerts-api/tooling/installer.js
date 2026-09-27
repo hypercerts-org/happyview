@@ -1,7 +1,10 @@
 import { readFile, stat } from 'node:fs/promises';
+import { createRequire } from 'node:module';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { readLexiconSource } from './lexicon-source.js';
+
+const require = createRequire(new URL('../package.json', import.meta.url));
 
 export function sortJsonKeys(value) {
   if (Array.isArray(value)) return value.map(sortJsonKeys);
@@ -15,12 +18,25 @@ export function sortJsonKeys(value) {
   return value;
 }
 
+function canonicalizeLexiconRefs(document) {
+  // HappyView stores canonical `lex:` refs; package schemas may use unprefixed refs.
+  const { Lexicons } = require('@atproto/lexicon');
+  const canonical = structuredClone(document);
+  const lexicons = new Lexicons([canonical]);
+  return lexicons.get(canonical.id);
+}
+
 export function compareAsset(asset, installed) {
   if (installed == null) return 'missing';
   const declaredConfig = asset.config ?? {};
   const installedConfig = Object.fromEntries(Object.keys(declaredConfig).map((key) => [key, installed.config?.[key]]));
   if (JSON.stringify(sortJsonKeys(installedConfig)) !== JSON.stringify(sortJsonKeys(declaredConfig))) return 'conflict';
-  if (asset.kind === 'lexicon' && JSON.stringify(sortJsonKeys(installed.lexicon_json)) !== JSON.stringify(sortJsonKeys(asset.lexicon_json))) return 'conflict';
+  if (asset.kind === 'lexicon') {
+    if (installed.lexicon_json == null) return 'conflict';
+    const installedLexicon = canonicalizeLexiconRefs(installed.lexicon_json);
+    const declaredLexicon = canonicalizeLexiconRefs(asset.lexicon_json);
+    if (JSON.stringify(sortJsonKeys(installedLexicon)) !== JSON.stringify(sortJsonKeys(declaredLexicon))) return 'conflict';
+  }
   if (asset.kind === 'script' && installed.body !== asset.body) return 'conflict';
   return 'unchanged';
 }
