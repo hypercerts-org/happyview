@@ -21,22 +21,22 @@ jobs:
       run:
         working-directory: hypercerts-api
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - uses: leafo/gh-actions-lua@v10
+      - uses: leafo/gh-actions-lua@6919171ccf181b826f44b9bca76307b577217377 # v13.0.0
         with:
           luaVersion: "5.4"
 
-      - uses: leafo/gh-actions-luarocks@v4
+      - uses: leafo/gh-actions-luarocks@35d062def313a7699a0d513e996bcf4352f05389 # v6.1.0
 
       - name: Install Luacheck
         run: luarocks install luacheck 1.2.0
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
         with:
           version: 10.15.1
 
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 24
           cache: pnpm

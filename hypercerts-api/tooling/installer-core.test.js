@@ -152,17 +152,51 @@ test('admin client treats only GET 404 as missing and sanitizes HTTP errors', as
   assert.deepEqual(calls.map(({ method }) => method), ['GET', 'POST', 'GET']);
 });
 
-test('semantic JSON comparison ignores nested key order but rejects changed values and script bodies', () => {
+test('semantic JSON comparison ignores nested key order and canonical Lexicon refs, but rejects changed values and script bodies', () => {
   const item = {
-    id: 'schema', kind: 'lexicon', config: { options: { Z: true, a: false } },
-    lexicon_json: { defs: { main: { type: 'record', fields: { Z: 'upper', a: 'lower' } } } },
+    id: 'org.example.record', kind: 'lexicon', config: { backfill: false },
+    lexicon_json: {
+      lexicon: 1,
+      id: 'org.example.record',
+      defs: {
+        main: {
+          type: 'record',
+          record: {
+            type: 'object',
+            properties: {
+              view: { type: 'ref', ref: 'org.example.defs#view' },
+              choices: { type: 'union', refs: ['org.example.defs#one', 'org.example.defs#two'] },
+            },
+          },
+        },
+      },
+    },
   };
   const installed = {
-    config: { options: { a: false, Z: true } },
-    lexicon_json: { defs: { main: { fields: { a: 'lower', Z: 'upper' }, type: 'record' } } },
+    config: { backfill: false },
+    lexicon_json: {
+      defs: {
+        main: {
+          record: {
+            properties: {
+              choices: { refs: ['lex:org.example.defs#one', 'lex:org.example.defs#two'], type: 'union' },
+              view: { ref: 'lex:org.example.defs#view', type: 'ref' },
+            },
+            type: 'object',
+          },
+          type: 'record',
+        },
+      },
+      id: 'org.example.record',
+      lexicon: 1,
+    },
   };
   assert.equal(compareAsset(item, installed), 'unchanged');
-  assert.equal(compareAsset(item, { ...installed, lexicon_json: { defs: { main: { fields: { a: 'changed', Z: 'upper' }, type: 'record' } } } }), 'conflict');
+  assert.equal(item.lexicon_json.defs.main.record.properties.view.ref, 'org.example.defs#view');
+
+  const changedLexicon = structuredClone(installed.lexicon_json);
+  changedLexicon.defs.main.record.properties.view.ref = 'lex:org.example.other#view';
+  assert.equal(compareAsset(item, { ...installed, lexicon_json: changedLexicon }), 'conflict');
   assert.equal(compareAsset({ id: 'script', kind: 'script', config: {}, body: 'return true\n' }, { config: {}, body: 'return true' }), 'conflict');
 });
 
