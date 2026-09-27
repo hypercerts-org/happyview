@@ -4,16 +4,34 @@ import { readFileSync, readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { loadAssets, orderAssets } from './installer.js';
 
-test('installer registers shared API views and query Lexicons after their declared dependencies', async () => {
+test('installer deploys only location records, required definitions, API Lexicons, and handlers', async () => {
   const manifest = JSON.parse(readFileSync(new URL('../manifest.json', import.meta.url), 'utf8'));
   const { assets } = await loadAssets(fileURLToPath(new URL('../manifest.json', import.meta.url)));
   const installed = new Map(assets.filter(({ kind }) => kind === 'lexicon').map((entry) => [entry.id, entry]));
-  for (const source of manifest.validationLexicons) {
-    const asset = installed.get(source.id);
-    assert.ok(asset, `missing install asset ${source.id}`);
-    assert.equal(asset.config.backfill, false, `${source.id} must not backfill during install`);
-    assert.equal(asset.packagePath, source.packagePath);
-    assert.equal(asset.lexicon_json.id, source.id);
+  const expectedAssetIds = [
+    'app.certified.actor.organization',
+    'app.certified.actor.profile',
+    'app.certified.location',
+    'app.certified.signature.defs',
+    'org.hypercerts.defs',
+    'org.hypercerts.api.defs',
+    'app.certified.location.getLocation',
+    'app.certified.location.listLocations',
+    'xrpc.query:app.certified.location.getLocation',
+    'xrpc.query:app.certified.location.listLocations',
+  ];
+  assert.deepEqual(assets.map(({ id }) => id).sort(), expectedAssetIds.sort());
+
+  const backfilledCollections = new Set([
+    'app.certified.actor.organization',
+    'app.certified.actor.profile',
+    'app.certified.location',
+  ]);
+  const validationSources = new Map(manifest.validationLexicons.map((source) => [source.id, source]));
+  for (const asset of installed.values()) {
+    assert.equal(asset.config.backfill, backfilledCollections.has(asset.id), `${asset.id} backfill configuration`);
+    assert.equal(asset.lexicon_json.id, asset.id);
+    if (asset.packagePath) assert.equal(asset.packagePath, validationSources.get(asset.id)?.packagePath);
   }
   const ordered = orderAssets(assets).map(({ id }) => id);
   const position = (id) => ordered.indexOf(id);

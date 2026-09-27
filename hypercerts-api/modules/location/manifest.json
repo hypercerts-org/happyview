@@ -2,19 +2,9 @@
   "assets": [
     {
       "kind": "lexicon",
-      "id": "app.bsky.richtext.facet",
-      "config": {
-        "backfill": false
-      },
-      "dependsOn": [],
-      "registrationGroup": "location-record-schema-sources",
-      "packagePath": "lexicons/app/bsky/richtext/facet.json"
-    },
-    {
-      "kind": "lexicon",
       "id": "app.certified.actor.organization",
       "config": {
-        "backfill": false
+        "backfill": true
       },
       "dependsOn": [],
       "registrationGroup": "location-record-schema-sources",
@@ -24,7 +14,7 @@
       "kind": "lexicon",
       "id": "app.certified.actor.profile",
       "config": {
-        "backfill": false
+        "backfill": true
       },
       "dependsOn": [],
       "registrationGroup": "location-record-schema-sources",
@@ -34,7 +24,7 @@
       "kind": "lexicon",
       "id": "app.certified.location",
       "config": {
-        "backfill": false
+        "backfill": true
       },
       "dependsOn": [],
       "registrationGroup": "location-record-schema-sources",
@@ -52,16 +42,6 @@
     },
     {
       "kind": "lexicon",
-      "id": "com.atproto.repo.strongRef",
-      "config": {
-        "backfill": false
-      },
-      "dependsOn": [],
-      "registrationGroup": "location-record-schema-sources",
-      "packagePath": "lexicons/com/atproto/repo/strongRef.json"
-    },
-    {
-      "kind": "lexicon",
       "id": "org.hypercerts.defs",
       "config": {
         "backfill": false
@@ -69,256 +49,6 @@
       "dependsOn": [],
       "registrationGroup": "location-record-schema-sources",
       "packagePath": "lexicons/org/hypercerts/defs.json"
-    },
-    {
-      "kind": "lexicon",
-      "id": "pub.leaflet.blocks.blockquote",
-      "config": {
-        "backfill": false
-      },
-      "dependsOn": [],
-      "registrationGroup": "location-record-schema-sources",
-      "packagePath": "lexicons/pub/leaflet/blocks/blockquote.json"
-    },
-    {
-      "kind": "lexicon",
-      "id": "pub.leaflet.blocks.bskyPost",
-      "config": {
-        "backfill": false
-      },
-      "dependsOn": [],
-      "registrationGroup": "location-record-schema-sources",
-      "packagePath": "lexicons/pub/leaflet/blocks/bskyPost.json"
-    },
-    {
-      "kind": "lexicon",
-      "id": "pub.leaflet.blocks.button",
-      "config": {
-        "backfill": false
-      },
-      "dependsOn": [],
-      "registrationGroup": "location-record-schema-sources",
-      "packagePath": "lexicons/pub/leaflet/blocks/button.json"
-    },
-    {
-      "kind": "lexicon",
-      "id": "pub.leaflet.blocks.code",
-      "config": {
-        "backfill": false
-      },
-      "dependsOn": [],
-      "registrationGroup": "location-record-schema-sources",
-      "packagePath": "lexicons/pub/leaflet/blocks/code.json"
-    },
-    {
-      "kind": "lexicon",
-      "id": "pub.leaflet.blocks.header",
-      "config": {
-        "backfill": false
-      },
-      "dependsOn": [],
-      "registrationGroup": "location-record-schema-sources",
-      "packagePath": "lexicons/pub/leaflet/blocks/header.json"
-    },
-    {
-      "kind": "lexicon",
-      "id": "pub.leaflet.blocks.horizontalRule",
-      "config": {
-        "backfill": false
-      },
-      "dependsOn": [],
-      "registrationGroup": "location-record-schema-sources",
-      "packagePath": "lexicons/pub/leaflet/blocks/horizontalRule.json"
-    },
-    {
-      "kind": "lexicon",
-      "id": "pub.leaflet.blocks.html",
-      "config": {
-        "backfill": false
-      },
-      "dependsOn": [],
-      "registrationGroup": "location-record-schema-sources",
-      "packagePath": "lexicons/pub/leaflet/blocks/html.json"
-    },
-    {
-      "kind": "lexicon",
-      "id": "pub.leaflet.blocks.iframe",
-      "config": {
-        "backfill": false
-      },
-      "dependsOn": [],
-      "registrationGroup": "location-record-schema-sources",
-      "packagePath": "lexicons/pub/leaflet/blocks/iframe.json"
-    },
-    {
-      "kind": "lexicon",
-      "id": "pub.leaflet.blocks.image",
-      "config": {
-        "backfill": false
-      },
-      "dependsOn": [],
-      "registrationGroup": "location-record-schema-sources",
-      "packagePath": "lexicons/pub/leaflet/blocks/image.json"
-    },
-    {
-      "kind": "lexicon",
-      "id": "pub.leaflet.blocks.imageGallery",
-      "config": {
-        "backfill": false
-      },
-      "dependsOn": [],
-      "registrationGroup": "location-record-schema-sources",
-      "packagePath": "lexicons/pub/leaflet/blocks/imageGallery.json"
-    },
-    {
-      "kind": "lexicon",
-      "id": "pub.leaflet.blocks.math",
-      "config": {
-        "backfill": false
-      },
-      "dependsOn": [],
-      "registrationGroup": "location-record-schema-sources",
-      "packagePath": "lexicons/pub/leaflet/blocks/math.json"
-    },
-    {
-      "kind": "lexicon",
-      "id": "pub.leaflet.blocks.membersOnlyDelimiter",
-      "config": {
-        "backfill": false
-      },
-      "dependsOn": [],
-      "registrationGroup": "location-record-schema-sources",
-      "packagePath": "lexicons/pub/leaflet/blocks/membersOnlyDelimiter.json"
-    },
-    {
-      "kind": "lexicon",
-      "id": "pub.leaflet.blocks.orderedList",
-      "config": {
-        "backfill": false
-      },
-      "dependsOn": [],
-      "registrationGroup": "location-record-schema-sources",
-      "packagePath": "lexicons/pub/leaflet/blocks/orderedList.json"
-    },
-    {
-      "kind": "lexicon",
-      "id": "pub.leaflet.blocks.page",
-      "config": {
-        "backfill": false
-      },
-      "dependsOn": [],
-      "registrationGroup": "location-record-schema-sources",
-      "packagePath": "lexicons/pub/leaflet/blocks/page.json"
-    },
-    {
-      "kind": "lexicon",
-      "id": "pub.leaflet.blocks.poll",
-      "config": {
-        "backfill": false
-      },
-      "dependsOn": [],
-      "registrationGroup": "location-record-schema-sources",
-      "packagePath": "lexicons/pub/leaflet/blocks/poll.json"
-    },
-    {
-      "kind": "lexicon",
-      "id": "pub.leaflet.blocks.postsList",
-      "config": {
-        "backfill": false
-      },
-      "dependsOn": [],
-      "registrationGroup": "location-record-schema-sources",
-      "packagePath": "lexicons/pub/leaflet/blocks/postsList.json"
-    },
-    {
-      "kind": "lexicon",
-      "id": "pub.leaflet.blocks.signup",
-      "config": {
-        "backfill": false
-      },
-      "dependsOn": [],
-      "registrationGroup": "location-record-schema-sources",
-      "packagePath": "lexicons/pub/leaflet/blocks/signup.json"
-    },
-    {
-      "kind": "lexicon",
-      "id": "pub.leaflet.blocks.standardSitePost",
-      "config": {
-        "backfill": false
-      },
-      "dependsOn": [],
-      "registrationGroup": "location-record-schema-sources",
-      "packagePath": "lexicons/pub/leaflet/blocks/standardSitePost.json"
-    },
-    {
-      "kind": "lexicon",
-      "id": "pub.leaflet.blocks.standardSitePublication",
-      "config": {
-        "backfill": false
-      },
-      "dependsOn": [],
-      "registrationGroup": "location-record-schema-sources",
-      "packagePath": "lexicons/pub/leaflet/blocks/standardSitePublication.json"
-    },
-    {
-      "kind": "lexicon",
-      "id": "pub.leaflet.blocks.text",
-      "config": {
-        "backfill": false
-      },
-      "dependsOn": [],
-      "registrationGroup": "location-record-schema-sources",
-      "packagePath": "lexicons/pub/leaflet/blocks/text.json"
-    },
-    {
-      "kind": "lexicon",
-      "id": "pub.leaflet.blocks.unorderedList",
-      "config": {
-        "backfill": false
-      },
-      "dependsOn": [],
-      "registrationGroup": "location-record-schema-sources",
-      "packagePath": "lexicons/pub/leaflet/blocks/unorderedList.json"
-    },
-    {
-      "kind": "lexicon",
-      "id": "pub.leaflet.blocks.website",
-      "config": {
-        "backfill": false
-      },
-      "dependsOn": [],
-      "registrationGroup": "location-record-schema-sources",
-      "packagePath": "lexicons/pub/leaflet/blocks/website.json"
-    },
-    {
-      "kind": "lexicon",
-      "id": "pub.leaflet.pages.linearDocument",
-      "config": {
-        "backfill": false
-      },
-      "dependsOn": [],
-      "registrationGroup": "location-record-schema-sources",
-      "packagePath": "lexicons/pub/leaflet/pages/linearDocument.json"
-    },
-    {
-      "kind": "lexicon",
-      "id": "pub.leaflet.richtext.facet",
-      "config": {
-        "backfill": false
-      },
-      "dependsOn": [],
-      "registrationGroup": "location-record-schema-sources",
-      "packagePath": "lexicons/pub/leaflet/richtext/facet.json"
-    },
-    {
-      "kind": "lexicon",
-      "id": "pub.leaflet.theme.color",
-      "config": {
-        "backfill": false
-      },
-      "dependsOn": [],
-      "registrationGroup": "location-record-schema-sources",
-      "packagePath": "lexicons/pub/leaflet/theme/color.json"
     },
     {
       "kind": "lexicon",

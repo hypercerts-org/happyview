@@ -7,17 +7,28 @@ import { readLexiconSource } from './lexicon-source.js';
 import { loadAssets } from './installer.js';
 import { fileURLToPath } from 'node:url';
 
-test('package-backed Lexicons resolve through the pinned package and install source content matches upstream', async () => {
+test('the full validation Lexicon closure resolves locally while only selected package Lexicons deploy', async () => {
   const manifest = JSON.parse(await readFile(new URL('../manifest.json', import.meta.url), 'utf8'));
   const { assets } = await loadAssets(fileURLToPath(new URL('../manifest.json', import.meta.url)));
-  const packageSources = manifest.validationLexicons.filter(({ packagePath }) => packagePath);
-  assert.ok(packageSources.length > 0);
-  for (const source of packageSources) {
+  const { documents } = await validatePackageLexicons();
+  const validatedIds = documents.map((document) => document.id);
+  assert.deepEqual(validatedIds.sort(), manifest.validationLexicons.map(({ id }) => id).sort());
+
+  const validationSources = new Map(manifest.validationLexicons.map((source) => [source.id, source]));
+  const deployedPackageAssets = assets.filter(({ kind, packagePath }) => kind === 'lexicon' && packagePath);
+  assert.deepEqual(deployedPackageAssets.map(({ id }) => id).sort(), [
+    'app.certified.actor.organization',
+    'app.certified.actor.profile',
+    'app.certified.location',
+    'app.certified.signature.defs',
+    'org.hypercerts.defs',
+  ]);
+  for (const asset of deployedPackageAssets) {
+    const source = validationSources.get(asset.id);
+    assert.equal(asset.packagePath, source.packagePath);
     const document = await readLexiconSource(source);
-    assert.equal(document.id, source.id);
-    const asset = assets.find(({ kind, id }) => kind === 'lexicon' && id === source.id);
-    assert.ok(asset, `missing install asset ${source.id}`);
-    assert.deepEqual(await readLexiconSource(asset), document);
+    assert.equal(document.id, asset.id);
+    assert.deepEqual(asset.lexicon_json, document);
   }
 });
 
