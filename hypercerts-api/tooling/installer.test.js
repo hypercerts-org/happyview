@@ -22,14 +22,10 @@ test('installer deploys only location records, required definitions, API Lexicon
   ];
   assert.deepEqual(assets.map(({ id }) => id).sort(), expectedAssetIds.sort());
 
-  const backfilledCollections = new Set([
-    'app.certified.actor.organization',
-    'app.certified.actor.profile',
-    'app.certified.location',
-  ]);
   const validationSources = new Map(manifest.validationLexicons.map((source) => [source.id, source]));
   for (const asset of installed.values()) {
-    assert.equal(asset.config.backfill, backfilledCollections.has(asset.id), `${asset.id} backfill configuration`);
+    const isRecordLexicon = asset.lexicon_json.defs?.main?.type === 'record';
+    assert.equal(asset.config.backfill, isRecordLexicon, `${asset.id} backfill configuration`);
     assert.equal(asset.lexicon_json.id, asset.id);
     if (asset.packagePath) assert.equal(asset.packagePath, validationSources.get(asset.id)?.packagePath);
   }
