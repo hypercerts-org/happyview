@@ -4,7 +4,7 @@
   "defs": {
     "main": {
       "type": "query",
-      "description": "Returns the earliest indexed follow record for one actor-to-actor relationship, or null when no matching relationship is indexed. Authentication is not required and the response is not personalized.",
+      "description": "Returns the earliest indexed follow record for one actor-to-actor relationship, or null when no matching relationship is indexed. Authentication is not required.",
       "parameters": {
         "type": "params",
         "required": ["actor", "subject"],

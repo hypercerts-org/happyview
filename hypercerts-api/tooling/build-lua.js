@@ -1,18 +1,33 @@
-import { readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
+import { buildLuaBundles, checkLuaBundles } from './lua-bundles.js';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
-const bundles = [
-  { shared: ['location'], endpoints: ['getLocation', 'listLocations'] },
-  { shared: ['actorFollow', 'actorFollowLookup'], endpoints: ['getFollow'] },
-  { shared: ['actorFollow', 'actorFollowList'], endpoints: ['listActorFollowers', 'listActorFollowing'] },
-];
 
-for (const { shared, endpoints } of bundles) {
-  const sharedSources = await Promise.all(shared.map((name) => readFile(path.join(root, `lua/shared/${name}.lua`), 'utf8')));
-  for (const name of endpoints) {
-    const endpoint = await readFile(path.join(root, `lua/src/${name}.lua`), 'utf8');
-    await writeFile(path.join(root, `lua/endpoints/${name}.lua`), `${[...sharedSources, endpoint].map((source) => source.trimEnd()).join('\n\n')}\n`);
+async function main() {
+  const [option, ...extraOptions] = process.argv.slice(2);
+  if (extraOptions.length > 0 || (option && option !== '--check')) {
+    throw new Error('Usage: node tooling/build-lua.js [--check]');
+  }
+
+  if (option === '--check') {
+    const stale = await checkLuaBundles(root);
+    if (stale.length > 0) {
+      const staleFiles = stale.map((file) => `  - ${file}`).join('\n');
+      throw new Error(`Generated Lua bundles are stale:\n${staleFiles}\nRun \`pnpm build:lua\` to regenerate and commit them.`);
+    }
+    process.stdout.write('Generated Lua bundles are up to date.\n');
+    return;
+  }
+
+  await buildLuaBundles(root);
+}
+
+if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) {
+  try {
+    await main();
+  } catch (error) {
+    process.stderr.write(`${error.message}\n`);
+    process.exitCode = 1;
   }
 }
