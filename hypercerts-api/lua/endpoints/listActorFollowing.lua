@@ -157,7 +157,7 @@ local function cursor_decode(token, direction)
   return value
 end
 
-local function query_actor_follows(mode, actor, limit, cursor, direction)
+local function build_actor_follow_query(mode, actor, limit, cursor, direction)
   local filters, values = { "collection = $1" }, { FOLLOW }
   values[#values + 1] = actor
   if mode == "followers" then
@@ -183,6 +183,20 @@ local function query_actor_follows(mode, actor, limit, cursor, direction)
     "total AS (SELECT COUNT(*) AS total_count FROM representatives), " ..
     "page AS (SELECT uri, did, cid, indexed_at, record, sort_at, actor_did FROM representatives" .. cursor_filter .. " ORDER BY sort_at " .. ordering .. ", uri " .. ordering .. " LIMIT $" .. #values .. ") " ..
     "SELECT page.uri, page.did, page.cid, page.indexed_at, page.record, page.actor_did, total.total_count, to_char(page.sort_at AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS.US\"Z\"') AS sort_timestamp FROM total LEFT JOIN page ON TRUE ORDER BY page.sort_at " .. ordering .. ", page.uri " .. ordering
+  return sql, values
+end
+
+local function build_actor_follow_views(rows)
+  local views = {}
+  for _, row in ipairs(rows) do
+    views[#views + 1] = { did = row.actor_did, follow = record_view(row) }
+  end
+  hydrate_actor_views(views, query)
+  return views
+end
+
+local function query_actor_follows(mode, actor, limit, cursor, direction)
+  local sql, values = build_actor_follow_query(mode, actor, limit, cursor, direction)
   local rows = query(sql, values)
   local total_count = rows[1] and tonumber(rows[1].total_count)
   if not total_count or total_count < 0 or total_count % 1 ~= 0 then error("ActorFollowQueryFailed: actor-follow count unavailable", 0) end
@@ -190,12 +204,7 @@ local function query_actor_follows(mode, actor, limit, cursor, direction)
   local more = #rows > limit
   if more then rows[#rows] = nil end
 
-  local views = {}
-  for _, row in ipairs(rows) do
-    views[#views + 1] = { did = row.actor_did, follow = record_view(row) }
-  end
-  hydrate_actor_views(views, query)
-
+  local views = build_actor_follow_views(rows)
   local next_cursor
   if more then
     local last = rows[#rows]
