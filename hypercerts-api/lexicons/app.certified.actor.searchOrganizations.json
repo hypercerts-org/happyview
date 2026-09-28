@@ -1,0 +1,72 @@
+{
+  "lexicon": 1,
+  "id": "app.certified.actor.searchOrganizations",
+  "defs": {
+    "main": {
+      "type": "query",
+      "description": "Searches the associated Certified profile displayName and description using the complete trimmed search text as a case-insensitive literal substring within either field. An organization without an associated profile cannot match nonblank search text; blank-after-trimming search imposes no search restriction. Other filters combine with search using AND. Results and pagination otherwise match listOrganizations. Authentication is not required.",
+      "parameters": {
+        "type": "params",
+        "required": ["search"],
+        "properties": {
+          "search": {
+            "type": "string",
+            "description": "Required search text; matching is literal, case-insensitive, and does not split terms across fields. A blank trimmed value imposes no search restriction."
+          },
+          "actors": {
+            "type": "array",
+            "maxLength": 100,
+            "description": "Actor DIDs whose organization sidecars are included; DIDs only, with OR within this filter.",
+            "items": { "type": "string", "format": "did" }
+          },
+          "organizationTypes": {
+            "type": "array",
+            "maxLength": 100,
+            "description": "Exact organizationType values; OR within this filter.",
+            "items": { "type": "string", "maxLength": 128 }
+          },
+          "visibility": {
+            "type": "string",
+            "description": "Exact match against the sidecar visibility value. Omission adds no visibility restriction; missing values do not match a supplied value."
+          },
+          "sortDirection": {
+            "type": "string",
+            "enum": ["asc", "desc"],
+            "description": "Sort direction for (createdAt, uri); default desc."
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "description": "Maximum actors in the page; default 25."
+          },
+          "cursor": {
+            "type": "string",
+            "description": "Opaque pagination cursor, bound to sortDirection."
+          }
+        }
+      },
+      "output": {
+        "encoding": "application/json",
+        "schema": { "type": "ref", "ref": "#output" }
+      },
+      "errors": [
+        { "name": "InvalidRequest", "description": "A filter value, page bound, cursor, repeated scalar, or query parameter is invalid." }
+      ]
+    },
+    "output": {
+      "type": "object",
+      "required": ["actors"],
+      "properties": {
+        "actors": {
+          "type": "array",
+          "items": { "type": "ref", "ref": "app.certified.actor.getOrganization#organizationActorView" }
+        },
+        "cursor": {
+          "type": "string",
+          "description": "Opaque cursor for the next page; omitted when there is no next page."
+        }
+      }
+    }
+  }
+}
