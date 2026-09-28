@@ -5,9 +5,12 @@ import { createRequire } from 'node:module';
 const require = createRequire(new URL('../package.json', import.meta.url));
 const lexiconPackageRoot = path.dirname(require.resolve('@hypercerts-org/lexicon/package.json'));
 
+/** @typedef {{ packagePath?: unknown; path?: unknown }} LexiconSource */
+/** @param {LexiconSource} source @param {string} [root] @returns {Promise<unknown>} */
 export async function readLexiconSource(source, root = process.cwd()) {
+  // path.join rejects non-string segments; these narrow assertions preserve that existing runtime check.
   const file = source.packagePath
-    ? path.join(lexiconPackageRoot, source.packagePath)
-    : path.join(root, source.path);
+    ? path.join(lexiconPackageRoot, /** @type {string} */ (source.packagePath))
+    : path.join(root, /** @type {string} */ (source.path));
   return JSON.parse(await readFile(file, 'utf8'));
 }
