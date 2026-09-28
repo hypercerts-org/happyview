@@ -1,6 +1,3 @@
-local FOLLOW = "app.certified.graph.follow"
-local NULL = json.decode("null")
-
 local function invalid(message)
   error("InvalidRequest: " .. message, 0)
 end
@@ -11,8 +8,8 @@ local function keys_only(values, allowed)
   end
 end
 
-local function scalar(values, key)
-  local value = values[key]
+local function scalar(params, key)
+  local value = params[key]
   if value == nil then return nil end
   if type(value) ~= "string" and type(value) ~= "number" then
     invalid(key .. " must occur once")
@@ -28,35 +25,16 @@ local function valid_did(value)
   return true
 end
 
-local function query(sql, values)
-  if db.backend() ~= "postgres" then error("ActorFollowQueryFailed: actor-follow queries require PostgreSQL", 0) end
-  local ok, result = pcall(db.raw, sql, values)
-  if not ok then error("ActorFollowQueryFailed: actor-follow lookup failed", 0) end
-  return result
-end
-
-local function row_view(row)
-  return {
-    uri = row.uri,
-    cid = row.cid,
-    indexedAt = row.indexed_at,
-    did = row.did,
-    record = json.decode(row.record),
-  }
-end
-
-local PROFILE = "app.certified.actor.profile"
-local ORGANIZATION = "app.certified.actor.organization"
-
 local function valid_record_key(value)
   return #value >= 1 and #value <= 512 and value ~= "." and value ~= ".."
     and not value:find("[^%w_~%.:%-]")
 end
 
-local function valid_follow_uri(value)
+local function valid_record_uri(value)
   if type(value) ~= "string" or value:find("[?#]") then return false end
   local authority, collection, rkey = value:match("^at://([^/]+)/([^/]+)/([^/]+)$")
-  return authority ~= nil and valid_did(authority) and collection == FOLLOW and valid_record_key(rkey)
+  if not authority or not valid_did(authority) or not valid_record_key(rkey) then return false end
+  return true, collection
 end
 
 local function valid_datetime(value)
@@ -81,37 +59,79 @@ local function valid_datetime(value)
   return true
 end
 
-local function hydrate(views)
-  if #views == 0 then return end
-  local dids, seen = {}, {}
-  for _, view in ipairs(views) do
-    if not seen[view.did] then
-      seen[view.did] = true
-      dids[#dids + 1] = view.did
-    end
-  end
-  local profiles, organizations = {}, {}
-  local function load(collection, target)
-    local values, marks = { collection }, {}
-    for _, did in ipairs(dids) do
-      values[#values + 1] = did
-      marks[#marks + 1] = "$" .. #values
-    end
-    local rows = query("SELECT uri, did, cid, indexed_at::text AS indexed_at, record::text AS record FROM happyview_records WHERE collection = $1 AND rkey = 'self' AND did IN (" .. table.concat(marks, ",") .. ")", values)
-    for _, row in ipairs(rows) do target[row.did] = row end
-  end
-  load(PROFILE, profiles)
-  load(ORGANIZATION, organizations)
-  for _, view in ipairs(views) do
-    local profile, organization = profiles[view.did], organizations[view.did]
-    view.profile = profile and row_view(profile) or NULL
-    view.organization = organization and row_view(organization) or NULL
-  end
+local function parse_list_limit(params)
+  local limit_value = scalar(params, "limit")
+  if limit_value and not limit_value:match("^%d+$") then invalid("limit must be an integer from 1 through 100") end
+  local limit = limit_value and tonumber(limit_value) or 25
+  if not limit or limit % 1 ~= 0 or limit < 1 or limit > 100 then invalid("limit must be an integer from 1 through 100") end
+  return limit
+end
+
+local function parse_sort_direction(params)
+  local direction = scalar(params, "sortDirection") or "desc"
+  if direction ~= "asc" and direction ~= "desc" then invalid("sortDirection must be 'asc' or 'desc'") end
+  return direction
 end
 
 local function cursor_encode(value)
   local encoded = json.encode(value)
   return (encoded:gsub(".", function(char) return string.format("%02x", string.byte(char)) end))
+end
+
+local NULL = json.decode("null")
+
+local function record_view(row)
+  return {
+    uri = row.uri,
+    cid = row.cid,
+    indexedAt = row.indexed_at,
+    did = row.did,
+    record = json.decode(row.record),
+  }
+end
+
+local PROFILE = "app.certified.actor.profile"
+local ORGANIZATION = "app.certified.actor.organization"
+
+local function hydrate_actor_views(actors, run_query)
+  if #actors == 0 then return end
+  local dids, seen = {}, {}
+  for _, actor in ipairs(actors) do
+    if not seen[actor.did] then
+      seen[actor.did] = true
+      dids[#dids + 1] = actor.did
+    end
+  end
+  local profiles, organizations = {}, {}
+  local function load(collection, target)
+    local params, marks = { collection }, {}
+    for _, did in ipairs(dids) do
+      params[#params + 1] = did
+      marks[#marks + 1] = "$" .. #params
+    end
+    local rows = run_query("SELECT uri, did, cid, indexed_at::text AS indexed_at, record::text AS record FROM happyview_records WHERE collection = $1 AND rkey = 'self' AND did IN (" .. table.concat(marks, ",") .. ")", params)
+    for _, row in ipairs(rows) do target[row.did] = row end
+  end
+  load(PROFILE, profiles)
+  load(ORGANIZATION, organizations)
+  for _, actor in ipairs(actors) do
+    actor.profile = profiles[actor.did] and record_view(profiles[actor.did]) or NULL
+    actor.organization = organizations[actor.did] and record_view(organizations[actor.did]) or NULL
+  end
+end
+
+local FOLLOW = "app.certified.graph.follow"
+
+local function query(sql, values)
+  if db.backend() ~= "postgres" then error("ActorFollowQueryFailed: actor-follow queries require PostgreSQL", 0) end
+  local ok, result = pcall(db.raw, sql, values)
+  if not ok then error("ActorFollowQueryFailed: actor-follow lookup failed", 0) end
+  return result
+end
+
+local function valid_follow_uri(value)
+  local valid, collection = valid_record_uri(value)
+  return valid and collection == FOLLOW
 end
 
 local function cursor_decode(token, direction)
@@ -159,9 +179,9 @@ local function query_actor_follows(mode, actor, limit, cursor, direction)
 
   local views = {}
   for _, row in ipairs(rows) do
-    views[#views + 1] = { did = row.actor_did, follow = row_view(row) }
+    views[#views + 1] = { did = row.actor_did, follow = record_view(row) }
   end
-  hydrate(views)
+  hydrate_actor_views(views, query)
 
   local next_cursor
   if more then
@@ -176,13 +196,8 @@ local function list_actor_follows(mode)
   local actor = scalar(params, "actor")
   if not actor or not valid_did(actor) then invalid("actor must be a valid DID") end
 
-  local limit_value = scalar(params, "limit")
-  if limit_value and not limit_value:match("^%d+$") then invalid("limit must be an integer from 1 through 100") end
-  local limit = limit_value and tonumber(limit_value) or 25
-  if not limit or limit % 1 ~= 0 or limit < 1 or limit > 100 then invalid("limit must be an integer from 1 through 100") end
-
-  local direction = scalar(params, "sortDirection") or "desc"
-  if direction ~= "asc" and direction ~= "desc" then invalid("sortDirection must be 'asc' or 'desc'") end
+  local limit = parse_list_limit(params)
+  local direction = parse_sort_direction(params)
   local cursor = cursor_decode(scalar(params, "cursor"), direction)
   local views, next_cursor = query_actor_follows(mode, actor, limit, cursor, direction)
   local response = { [mode] = toarray(views) }

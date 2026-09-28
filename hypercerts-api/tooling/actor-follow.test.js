@@ -310,6 +310,9 @@ test('actor-follow queries reject invalid DIDs, limits, scalar repetition, unkno
     { actor, extra: 'not-supported' },
     { actor, cursor: 'not-hex' },
     { actor, cursor: cursor({ timestamp: '2025-02-30T00:00:00Z' }) },
+    { actor, cursor: cursor({ uri: `at://${follower}/app.certified.graph.other/key` }) },
+    { actor, cursor: cursor({ uri: `at://${follower}/${followCollection}/.` }) },
+    { actor, cursor: cursor({ uri: `at://${follower}/${followCollection}/${'a'.repeat(513)}` }) },
     { actor, cursor: cursor({ direction: 'asc' }), sortDirection: 'desc' },
   ]) {
     runLua({ endpoint: 'listActorFollowers', params, expectError: 'InvalidRequest:' });

@@ -2,9 +2,10 @@ import { readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
 const bundles = [
-  { shared: ['location'], endpoints: ['getLocation', 'listLocations'] },
-  { shared: ['actorFollow', 'actorFollowLookup'], endpoints: ['getFollow'] },
-  { shared: ['actorFollow', 'actorFollowList'], endpoints: ['listActorFollowers', 'listActorFollowing'] },
+  { shared: ['query', 'recordIdentifier', 'recordView', 'actorView', 'location'], endpoints: ['getLocation'] },
+  { shared: ['query', 'recordIdentifier', 'listQuery', 'recordView', 'actorView', 'location'], endpoints: ['listLocations'] },
+  { shared: ['query', 'recordView', 'actorFollow', 'actorFollowLookup'], endpoints: ['getFollow'] },
+  { shared: ['query', 'recordIdentifier', 'listQuery', 'recordView', 'actorView', 'actorFollow', 'actorFollowList'], endpoints: ['listActorFollowers', 'listActorFollowing'] },
 ];
 
 async function renderBundles(root) {

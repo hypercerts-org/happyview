@@ -1,8 +1,3 @@
-local COLLECTION = "app.certified.location"
-local PROFILE = "app.certified.actor.profile"
-local ORGANIZATION = "app.certified.actor.organization"
-local NULL = json.decode("null")
-
 local function invalid(message)
   error("InvalidRequest: " .. message, 0)
 end
@@ -35,10 +30,60 @@ local function valid_record_key(value)
     and not value:find("[^%w_~%.:%-]")
 end
 
-local function valid_uri(value)
-  if value:find("[?#]") then return false end
+local function valid_record_uri(value)
+  if type(value) ~= "string" or value:find("[?#]") then return false end
   local authority, collection, rkey = value:match("^at://([^/]+)/([^/]+)/([^/]+)$")
-  return authority ~= nil and valid_did(authority) and collection == COLLECTION and valid_record_key(rkey)
+  if not authority or not valid_did(authority) or not valid_record_key(rkey) then return false end
+  return true, collection
+end
+
+local NULL = json.decode("null")
+
+local function record_view(row)
+  return {
+    uri = row.uri,
+    cid = row.cid,
+    indexedAt = row.indexed_at,
+    did = row.did,
+    record = json.decode(row.record),
+  }
+end
+
+local PROFILE = "app.certified.actor.profile"
+local ORGANIZATION = "app.certified.actor.organization"
+
+local function hydrate_actor_views(actors, run_query)
+  if #actors == 0 then return end
+  local dids, seen = {}, {}
+  for _, actor in ipairs(actors) do
+    if not seen[actor.did] then
+      seen[actor.did] = true
+      dids[#dids + 1] = actor.did
+    end
+  end
+  local profiles, organizations = {}, {}
+  local function load(collection, target)
+    local params, marks = { collection }, {}
+    for _, did in ipairs(dids) do
+      params[#params + 1] = did
+      marks[#marks + 1] = "$" .. #params
+    end
+    local rows = run_query("SELECT uri, did, cid, indexed_at::text AS indexed_at, record::text AS record FROM happyview_records WHERE collection = $1 AND rkey = 'self' AND did IN (" .. table.concat(marks, ",") .. ")", params)
+    for _, row in ipairs(rows) do target[row.did] = row end
+  end
+  load(PROFILE, profiles)
+  load(ORGANIZATION, organizations)
+  for _, actor in ipairs(actors) do
+    actor.profile = profiles[actor.did] and record_view(profiles[actor.did]) or NULL
+    actor.organization = organizations[actor.did] and record_view(organizations[actor.did]) or NULL
+  end
+end
+
+local COLLECTION = "app.certified.location"
+
+local function valid_location_uri(value)
+  local valid, collection = valid_record_uri(value)
+  return valid and collection == COLLECTION
 end
 
 local function query(sql, values)
@@ -47,45 +92,21 @@ local function query(sql, values)
   return result
 end
 
-local function row_view(row)
-  local record = json.decode(row.record)
-  return {
-    uri = row.uri, cid = row.cid, indexedAt = row.indexed_at, did = row.did,
-    record = record,
-  }
-end
-
 local function hydrate(views)
-  if #views == 0 then return end
-  local dids, seen = {}, {}
+  local authors = {}
   for _, view in ipairs(views) do
-    if not seen[view.did] then seen[view.did] = true; dids[#dids + 1] = view.did end
-  end
-  local profiles, organizations = {}, {}
-  local function load(collection, target)
-    if #dids == 0 then return end
-    local params, marks = {}, {}
-    params[1] = collection
-    for _, did in ipairs(dids) do params[#params + 1] = did; marks[#marks + 1] = "$" .. #params end
-    local rows = query("SELECT uri, did, cid, indexed_at::text AS indexed_at, record::text AS record FROM happyview_records WHERE collection = $1 AND rkey = 'self' AND did IN (" .. table.concat(marks, ",") .. ")", params)
-    for _, row in ipairs(rows) do target[row.did] = row end
-  end
-  load(PROFILE, profiles)
-  load(ORGANIZATION, organizations)
-  for _, view in ipairs(views) do
-    local profile, organization = profiles[view.did], organizations[view.did]
-    local author = { did = view.did, profile = NULL, organization = NULL }
-    if profile then author.profile = row_view(profile) end
-    if organization then author.organization = row_view(organization) end
+    local author = { did = view.did }
     view.author = author
+    authors[#authors + 1] = author
   end
+  hydrate_actor_views(authors, query)
 end
 
 local function query_location(uri)
   if db.backend() ~= "postgres" then error("LocationQueryFailed: location API requires PostgreSQL", 0) end
   local rows = query("SELECT uri, did, cid, indexed_at::text AS indexed_at, record::text AS record FROM happyview_records WHERE collection = $1 AND uri = $2 LIMIT 1", { COLLECTION, uri })
   local views = {}
-  for _, row in ipairs(rows) do views[#views + 1] = row_view(row) end
+  for _, row in ipairs(rows) do views[#views + 1] = record_view(row) end
   hydrate(views)
   return views
 end
@@ -93,7 +114,7 @@ end
 local function get_location()
   keys_only(params, { uri = true })
   local uri = scalar(params, "uri")
-  if not uri or not valid_uri(uri) then invalid("uri must be a full app.certified.location AT-URI with a DID authority") end
+  if not uri or not valid_location_uri(uri) then invalid("uri must be a full app.certified.location AT-URI with a DID authority") end
   local views = query_location(uri)
   if #views == 0 then error("RecordNotFound: location record is not indexed", 0) end
   return { location = views[1] }
