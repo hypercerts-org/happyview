@@ -9,6 +9,8 @@ const bundles = [
   { shared: ['profile', 'profileLookup'], endpoints: ['getProfile'] },
   { shared: ['profile'], endpoints: ['getProfiles'] },
   { shared: ['profile', 'profileList'], endpoints: ['listProfiles', 'searchProfiles'] },
+  { shared: ['organization'], endpoints: ['getOrganization'] },
+  { shared: ['organization', 'organizationList'], endpoints: ['listOrganizations', 'searchOrganizations'] },
 ];
 
 async function renderBundles(root) {
