@@ -1,22 +1,36 @@
 {
-  "name": "hypercerts-location-api",
+  "name": "hypercerts-location-actor-follow-api",
   "collection": "app.certified.location",
   "targetHappyViewRevision": "a2f347e605d7cd9c11669b320e43c10dbfe982e3",
-  "runtimeCompatibility": "pending-runtime-validation",
-  "status": "handlers-implemented-runtime-validation-pending",
+  "runtimeCompatibility": "compatible-at-target-revision",
+  "status": "handlers-implemented-runtime-validation-passed-at-target-revision",
   "handlerStatus": {
     "getLocation": "implemented",
-    "listLocations": "implemented"
+    "listLocations": "implemented",
+    "getFollow": "implemented",
+    "listActorFollowers": "implemented",
+    "listActorFollowing": "implemented"
   },
   "authentication": {
     "decision": "public",
     "unresolved": false,
-    "note": "Both endpoints expose public record reads and require no caller authentication."
+    "note": "The location and actor-follow query endpoints expose public record reads and require no caller authentication."
   },
   "luaBuild": {
     "command": "pnpm build:lua",
-    "sharedSource": "lua/shared/location.lua",
-    "endpointSources": ["lua/src/getLocation.lua", "lua/src/listLocations.lua"],
+    "sharedSources": [
+      "lua/shared/location.lua",
+      "lua/shared/actorFollow.lua",
+      "lua/shared/actorFollowLookup.lua",
+      "lua/shared/actorFollowList.lua"
+    ],
+    "endpointSources": [
+      "lua/src/getLocation.lua",
+      "lua/src/listLocations.lua",
+      "lua/src/getFollow.lua",
+      "lua/src/listActorFollowers.lua",
+      "lua/src/listActorFollowing.lua"
+    ],
     "installedHandlers": "lua/endpoints/"
   },
   "validationLexicons": [
@@ -27,6 +41,22 @@
     {
       "id": "org.hypercerts.api.defs",
       "path": "lexicons/org.hypercerts.api.defs.json"
+    },
+    {
+      "id": "app.certified.graph.follow",
+      "packagePath": "lexicons/app/certified/graph/follow.json"
+    },
+    {
+      "id": "app.certified.graph.getFollow",
+      "path": "lexicons/app.certified.graph.getFollow.json"
+    },
+    {
+      "id": "app.certified.graph.listActorFollowers",
+      "path": "lexicons/app.certified.graph.listActorFollowers.json"
+    },
+    {
+      "id": "app.certified.graph.listActorFollowing",
+      "path": "lexicons/app.certified.graph.listActorFollowing.json"
     },
     {
       "id": "app.certified.location.getLocation",
@@ -162,6 +192,7 @@
     }
   ],
   "modules": [
-    "modules/location/manifest.json"
+    "modules/location/manifest.json",
+    "modules/actor-follow/manifest.json"
   ]
 }

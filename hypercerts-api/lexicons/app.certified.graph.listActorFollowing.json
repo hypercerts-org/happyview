@@ -1,0 +1,58 @@
+{
+  "lexicon": 1,
+  "id": "app.certified.graph.listActorFollowing",
+  "defs": {
+    "main": {
+      "type": "query",
+      "description": "Lists actors named as subjects by the requested actor's indexed follow records. Authentication is not required and the response is not personalized. Duplicate relationships are collapsed before pagination.",
+      "parameters": {
+        "type": "params",
+        "required": ["actor"],
+        "properties": {
+          "actor": {
+            "type": "string",
+            "format": "did",
+            "description": "DID of the actor whose outgoing follows are listed. Required."
+          },
+          "sortDirection": {
+            "type": "string",
+            "enum": ["asc", "desc"],
+            "description": "Sort by each representative follow's createdAt and URI in this direction; the default is desc."
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "description": "Maximum relationships returned; the handler default is 25."
+          },
+          "cursor": {
+            "type": "string",
+            "description": "Opaque cursor from the previous page, bound to sortDirection. Keep other query parameters unchanged between pages."
+          }
+        }
+      },
+      "output": {
+        "encoding": "application/json",
+        "schema": { "type": "ref", "ref": "#output" }
+      },
+      "errors": [
+        { "name": "InvalidRequest", "description": "A required DID, sort direction, limit, cursor, or query parameter is invalid." }
+      ]
+    },
+    "output": {
+      "type": "object",
+      "required": ["following"],
+      "properties": {
+        "following": {
+          "type": "array",
+          "items": { "type": "ref", "ref": "app.certified.graph.getFollow#actorFollowView" },
+          "description": "Outgoing relationships, with each displayed DID identifying the actor named as the follow subject."
+        },
+        "cursor": {
+          "type": "string",
+          "description": "Opaque cursor for the next page; omitted when there are no more relationships."
+        }
+      }
+    }
+  }
+}
