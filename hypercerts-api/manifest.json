@@ -19,6 +19,11 @@
   "luaBuild": {
     "command": "pnpm build:lua",
     "sharedSources": [
+      "lua/shared/query.lua",
+      "lua/shared/recordIdentifier.lua",
+      "lua/shared/listQuery.lua",
+      "lua/shared/recordView.lua",
+      "lua/shared/actorView.lua",
       "lua/shared/location.lua",
       "lua/shared/actorFollow.lua",
       "lua/shared/actorFollowLookup.lua",

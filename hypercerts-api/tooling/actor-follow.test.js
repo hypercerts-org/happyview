@@ -226,13 +226,28 @@ assert(result.follow.did == '${actor}' and result.follow.record.createdAt == '20
 assert(result.follow.record.via.uri == 'at://did:plc:list/app.certified.list/one')
 assert(#calls == 1)
 assert(calls[1].values[1] == '${followCollection}' and calls[1].values[2] == '${actor}' and calls[1].values[3] == '${subject}')
-assert(calls[1].sql:find("ORDER BY (record::jsonb->>'createdAt')::timestamptz ASC, uri ASC LIMIT 1", 1, true))
+assert(calls[1].sql:find('ORDER BY sorted.sort_at ASC, uri ASC LIMIT 1', 1, true))
 assert(result.follow.via == nil, 'via stays inside the unchanged raw record')
 `,
   });
   assert.equal(output, '');
 
   runLua({ endpoint: 'getFollow', params: { actor, subject }, rows: [], assertions: 'assert(result.follow == NULL_VALUE)\nassert(#calls == 1)' });
+});
+
+test('actor-follow lookup and listings guard malformed createdAt and fall back to indexed_at for sorting', () => {
+  for (const endpoint of ['getFollow', 'listActorFollowers', 'listActorFollowing']) {
+    runLua({
+      endpoint,
+      params: endpoint === 'getFollow' ? { actor, subject } : { actor },
+      assertions: `
+assert(calls[1].sql:find("jsonb_typeof(record::jsonb->'createdAt') = 'string'", 1, true))
+assert(calls[1].sql:find('pg_input_is_valid(', 1, true))
+assert(calls[1].sql:find('ELSE COALESCE(indexed_at::timestamptz, created_at::timestamptz) END', 1, true))
+assert(calls[1].sql:find('ORDER BY sorted.sort_at ASC, uri ASC', 1, true))
+`,
+    });
+  }
 });
 
 test('listActorFollowers deduplicates before cursor pagination, sorts newest first, and hydrates only the returned page', () => {
@@ -264,7 +279,7 @@ assert(sql:find("record::jsonb->>'subject' = $2", 1, true))
 assert(not sql:find('did = $2', 1, true), 'followers are selected by subject, not publisher')
 assert(sql:find('ROW_NUMBER() OVER', 1, true))
 assert(sql:find("PARTITION BY did, record::jsonb->>'subject'", 1, true))
-assert(sql:find("ORDER BY (record::jsonb->>'createdAt')::timestamptz ASC, uri ASC", 1, true))
+assert(sql:find('ORDER BY sorted.sort_at ASC, uri ASC', 1, true))
 local representativeFilter = assert(sql:find('relationship_rank = 1', 1, true))
 local cursorFilter = assert(sql:find('(sort_at, uri) <', 1, true))
 assert(representativeFilter < cursorFilter, 'collapse duplicate relationships before applying the page cursor')
