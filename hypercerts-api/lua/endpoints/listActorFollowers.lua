@@ -172,8 +172,14 @@ local function query_actor_follows(mode, actor, limit, cursor, direction)
   values[#values + 1] = limit + 1
   local ordering = direction == "asc" and "ASC" or "DESC"
   local displayed_did = mode == "followers" and "did" or "subject_did"
-  local sql = "WITH ranked_follows AS (SELECT uri, did, cid, indexed_at::text AS indexed_at, record::text AS record, record::jsonb->>'subject' AS subject_did, (record::jsonb->>'createdAt')::timestamptz AS sort_at, ROW_NUMBER() OVER (PARTITION BY did, record::jsonb->>'subject' ORDER BY (record::jsonb->>'createdAt')::timestamptz ASC, uri ASC) AS relationship_rank FROM happyview_records WHERE " .. table.concat(filters, " AND ") .. "), representatives AS (SELECT uri, did, cid, indexed_at, record, sort_at, " .. displayed_did .. " AS actor_did FROM ranked_follows WHERE relationship_rank = 1) SELECT uri, did, cid, indexed_at, record, actor_did, to_char(sort_at AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS.US\"Z\"') AS sort_timestamp FROM representatives" .. cursor_filter .. " ORDER BY sort_at " .. ordering .. ", uri " .. ordering .. " LIMIT $" .. #values
+  local sql = "WITH ranked_follows AS (SELECT uri, did, cid, indexed_at::text AS indexed_at, record::text AS record, record::jsonb->>'subject' AS subject_did, (record::jsonb->>'createdAt')::timestamptz AS sort_at, ROW_NUMBER() OVER (PARTITION BY did, record::jsonb->>'subject' ORDER BY (record::jsonb->>'createdAt')::timestamptz ASC, uri ASC) AS relationship_rank FROM happyview_records WHERE " .. table.concat(filters, " AND ") .. "), representatives AS (SELECT uri, did, cid, indexed_at, record, sort_at, " .. displayed_did .. " AS actor_did FROM ranked_follows WHERE relationship_rank = 1), " ..
+    "total AS (SELECT COUNT(*) AS total_count FROM representatives), " ..
+    "page AS (SELECT uri, did, cid, indexed_at, record, sort_at, actor_did FROM representatives" .. cursor_filter .. " ORDER BY sort_at " .. ordering .. ", uri " .. ordering .. " LIMIT $" .. #values .. ") " ..
+    "SELECT page.uri, page.did, page.cid, page.indexed_at, page.record, page.actor_did, total.total_count, to_char(page.sort_at AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS.US\"Z\"') AS sort_timestamp FROM total LEFT JOIN page ON TRUE ORDER BY page.sort_at " .. ordering .. ", page.uri " .. ordering
   local rows = query(sql, values)
+  local total_count = rows[1] and tonumber(rows[1].total_count)
+  if not total_count or total_count < 0 or total_count % 1 ~= 0 then error("ActorFollowQueryFailed: actor-follow count unavailable", 0) end
+  if rows[1].uri == nil then rows = {} end
   local more = #rows > limit
   if more then rows[#rows] = nil end
 
@@ -188,7 +194,7 @@ local function query_actor_follows(mode, actor, limit, cursor, direction)
     local last = rows[#rows]
     next_cursor = cursor_encode({ v = 1, d = direction, t = last.sort_timestamp, u = last.uri })
   end
-  return views, next_cursor
+  return views, next_cursor, total_count
 end
 
 local function list_actor_follows(mode)
@@ -199,8 +205,8 @@ local function list_actor_follows(mode)
   local limit = parse_list_limit(params)
   local direction = parse_sort_direction(params)
   local cursor = cursor_decode(scalar(params, "cursor"), direction)
-  local views, next_cursor = query_actor_follows(mode, actor, limit, cursor, direction)
-  local response = { [mode] = toarray(views) }
+  local views, next_cursor, total_count = query_actor_follows(mode, actor, limit, cursor, direction)
+  local response = { [mode] = toarray(views), totalCount = total_count }
   if next_cursor then response.cursor = next_cursor end
   return response
 end
