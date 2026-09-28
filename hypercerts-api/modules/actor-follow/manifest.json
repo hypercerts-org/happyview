@@ -1,0 +1,89 @@
+{
+  "assets": [
+    {
+      "kind": "lexicon",
+      "id": "app.certified.graph.follow",
+      "packagePath": "lexicons/app/certified/graph/follow.json",
+      "config": {
+        "backfill": true
+      },
+      "dependsOn": ["app.certified.signature.defs"],
+      "registrationGroup": "actor-follow-record-schema-sources"
+    },
+    {
+      "kind": "lexicon",
+      "id": "app.certified.graph.getFollow",
+      "path": "../../lexicons/app.certified.graph.getFollow.json",
+      "config": {
+        "backfill": false,
+        "target_collection": "app.certified.graph.follow"
+      },
+      "dependsOn": ["app.certified.graph.follow", "org.hypercerts.api.defs"]
+    },
+    {
+      "kind": "lexicon",
+      "id": "app.certified.graph.listActorFollowers",
+      "path": "../../lexicons/app.certified.graph.listActorFollowers.json",
+      "config": {
+        "backfill": false,
+        "target_collection": "app.certified.graph.follow"
+      },
+      "dependsOn": ["app.certified.graph.getFollow"]
+    },
+    {
+      "kind": "lexicon",
+      "id": "app.certified.graph.listActorFollowing",
+      "path": "../../lexicons/app.certified.graph.listActorFollowing.json",
+      "config": {
+        "backfill": false,
+        "target_collection": "app.certified.graph.follow"
+      },
+      "dependsOn": ["app.certified.graph.getFollow"]
+    },
+    {
+      "kind": "script",
+      "id": "xrpc.query:app.certified.graph.getFollow",
+      "path": "../../lua/endpoints/getFollow.lua",
+      "sourcePath": "../../lua/src/getFollow.lua",
+      "sharedSourcePaths": [
+        "../../lua/shared/actorFollow.lua",
+        "../../lua/shared/actorFollowLookup.lua"
+      ],
+      "config": {
+        "script_type": "lua",
+        "description": "Actor follow API handler"
+      },
+      "dependsOn": ["app.certified.graph.getFollow"]
+    },
+    {
+      "kind": "script",
+      "id": "xrpc.query:app.certified.graph.listActorFollowers",
+      "path": "../../lua/endpoints/listActorFollowers.lua",
+      "sourcePath": "../../lua/src/listActorFollowers.lua",
+      "sharedSourcePaths": [
+        "../../lua/shared/actorFollow.lua",
+        "../../lua/shared/actorFollowList.lua"
+      ],
+      "config": {
+        "script_type": "lua",
+        "description": "Actor follow API handler"
+      },
+      "dependsOn": ["app.certified.graph.listActorFollowers"]
+    },
+    {
+      "kind": "script",
+      "id": "xrpc.query:app.certified.graph.listActorFollowing",
+      "path": "../../lua/endpoints/listActorFollowing.lua",
+      "sourcePath": "../../lua/src/listActorFollowing.lua",
+      "sharedSourcePaths": [
+        "../../lua/shared/actorFollow.lua",
+        "../../lua/shared/actorFollowList.lua"
+      ],
+      "config": {
+        "script_type": "lua",
+        "description": "Actor follow API handler"
+      },
+      "dependsOn": ["app.certified.graph.listActorFollowing"]
+    }
+  ]
+}
