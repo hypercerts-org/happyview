@@ -1,0 +1,94 @@
+{
+  "assets": [
+    {
+      "kind": "lexicon",
+      "id": "app.certified.actor.getProfile",
+      "path": "../../lexicons/app.certified.actor.getProfile.json",
+      "config": {
+        "backfill": false,
+        "target_collection": "app.certified.actor.profile"
+      },
+      "dependsOn": [
+        "app.certified.actor.profile",
+        "org.hypercerts.api.defs"
+      ]
+    },
+    {
+      "kind": "lexicon",
+      "id": "app.certified.actor.listProfiles",
+      "path": "../../lexicons/app.certified.actor.listProfiles.json",
+      "config": {
+        "backfill": false,
+        "target_collection": "app.certified.actor.profile"
+      },
+      "dependsOn": [
+        "app.certified.actor.profile",
+        "org.hypercerts.api.defs"
+      ]
+    },
+    {
+      "kind": "lexicon",
+      "id": "app.certified.actor.searchProfiles",
+      "path": "../../lexicons/app.certified.actor.searchProfiles.json",
+      "config": {
+        "backfill": false,
+        "target_collection": "app.certified.actor.profile"
+      },
+      "dependsOn": [
+        "app.certified.actor.profile",
+        "org.hypercerts.api.defs"
+      ]
+    },
+    {
+      "kind": "script",
+      "id": "xrpc.query:app.certified.actor.getProfile",
+      "path": "../../lua/endpoints/getProfile.lua",
+      "sourcePath": "../../lua/src/getProfile.lua",
+      "sharedSourcePaths": [
+        "../../lua/shared/profile.lua",
+        "../../lua/shared/profileLookup.lua"
+      ],
+      "config": {
+        "script_type": "lua",
+        "description": "Certified profile lookup handler"
+      },
+      "dependsOn": [
+        "app.certified.actor.getProfile"
+      ]
+    },
+    {
+      "kind": "script",
+      "id": "xrpc.query:app.certified.actor.searchProfiles",
+      "path": "../../lua/endpoints/searchProfiles.lua",
+      "sourcePath": "../../lua/src/searchProfiles.lua",
+      "sharedSourcePaths": [
+        "../../lua/shared/profile.lua",
+        "../../lua/shared/profileList.lua"
+      ],
+      "config": {
+        "script_type": "lua",
+        "description": "Certified profile search handler"
+      },
+      "dependsOn": [
+        "app.certified.actor.searchProfiles"
+      ]
+    },
+    {
+      "kind": "script",
+      "id": "xrpc.query:app.certified.actor.listProfiles",
+      "path": "../../lua/endpoints/listProfiles.lua",
+      "sourcePath": "../../lua/src/listProfiles.lua",
+      "sharedSourcePaths": [
+        "../../lua/shared/profile.lua",
+        "../../lua/shared/profileList.lua"
+      ],
+      "config": {
+        "script_type": "lua",
+        "description": "Certified profile listing handler"
+      },
+      "dependsOn": [
+        "app.certified.actor.listProfiles"
+      ]
+    }
+  ]
+}

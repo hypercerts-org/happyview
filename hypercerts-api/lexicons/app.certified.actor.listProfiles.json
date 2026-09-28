@@ -1,0 +1,38 @@
+{
+  "lexicon": 1,
+  "id": "app.certified.actor.listProfiles",
+  "defs": {
+    "main": {
+      "type": "query",
+      "description": "Public listing of indexed Certified profiles. Authentication is not required. actors uses repeated unbracketed keys, accepts at most 100 supplied DIDs before deduplication, and ORs them together. This listing has no text-search parameter; use searchProfiles for profile text discovery. The handler applies limit=25 and sortDirection=desc when omitted; limit is 1..100. Results sort by a valid zoned createdAt, otherwise indexedAt (or stored row creation time when indexedAt is absent), then URI, both in the requested direction. The opaque cursor is direction-bound and provides no snapshot guarantee; keep other parameters unchanged between pages. Unknown parameters and repeated scalar keys are rejected.",
+      "parameters": {
+        "type": "params",
+        "properties": {
+          "sortDirection": { "type": "string", "description": "Sort direction; handler default is desc.", "enum": ["asc", "desc"] },
+          "actors": { "type": "array", "description": "DIDs whose indexed profiles should be returned. Repeated values are ORed; handles are not resolved.", "maxLength": 100, "items": { "type": "string", "format": "did" } },
+          "limit": { "type": "integer", "description": "Page size; handler default is 25.", "minimum": 1, "maximum": 100 },
+          "cursor": { "type": "string", "description": "Opaque versioned keyset cursor bound to sortDirection." }
+        }
+      },
+      "output": {
+        "encoding": "application/json",
+        "schema": { "type": "ref", "ref": "#output" }
+      },
+      "errors": [
+        { "name": "InvalidRequest", "description": "A parameter is invalid, repeated where scalar, or unknown." },
+        { "name": "ProfileQueryFailed", "description": "The indexed profiles could not be queried." }
+      ]
+    },
+    "output": {
+      "type": "object",
+      "required": ["profiles"],
+      "properties": {
+        "profiles": {
+          "type": "array",
+          "items": { "type": "ref", "ref": "org.hypercerts.api.defs#profileView" }
+        },
+        "cursor": { "type": "string", "description": "Opaque cursor for the next page; omitted when pagination is complete." }
+      }
+    }
+  }
+}
