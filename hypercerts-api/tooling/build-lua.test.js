@@ -37,11 +37,20 @@ async function withLuaRoot(run) {
   }
 }
 
-test('builds a handler bundle with shared source before its endpoint', async () => {
+test('builds a handler bundle from its shared and endpoint sources', async () => {
   await withLuaRoot(async (root) => {
     await buildLuaBundles(root);
-    const built = await readFile(path.join(root, 'lua/endpoints/getLocation.lua'), 'utf8');
-    assert.ok(built.endsWith('local function query() return "location" end\n\nfunction handle() return query() end\n'));
+    assert.equal(
+      await readFile(path.join(root, 'lua/endpoints/getLocation.lua'), 'utf8'),
+      [
+        'local function query_common() return "query" end',
+        'local function record_identifier_common() return "identifier" end',
+        'local function record_view_common() return "record" end',
+        'local function actor_view_common() return "actor" end',
+        'local function query() return "location" end',
+        'function handle() return query() end',
+      ].join('\n\n') + '\n',
+    );
   });
 });
 
