@@ -6,6 +6,8 @@ const bundles = [
   { shared: ['query', 'recordIdentifier', 'listQuery', 'recordView', 'actorView', 'location'], endpoints: ['listLocations'] },
   { shared: ['query', 'recordView', 'actorFollow', 'actorFollowLookup'], endpoints: ['getFollow'] },
   { shared: ['query', 'recordIdentifier', 'listQuery', 'recordView', 'actorView', 'actorFollow', 'actorFollowList'], endpoints: ['listActorFollowers', 'listActorFollowing'] },
+  { shared: ['profile', 'profileLookup'], endpoints: ['getProfile'] },
+  { shared: ['profile', 'profileList'], endpoints: ['listProfiles', 'searchProfiles'] },
 ];
 
 async function renderBundles(root) {
