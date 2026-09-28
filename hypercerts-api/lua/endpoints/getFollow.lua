@@ -1,6 +1,3 @@
-local FOLLOW = "app.certified.graph.follow"
-local NULL = json.decode("null")
-
 local function invalid(message)
   error("InvalidRequest: " .. message, 0)
 end
@@ -11,8 +8,8 @@ local function keys_only(values, allowed)
   end
 end
 
-local function scalar(values, key)
-  local value = values[key]
+local function scalar(params, key)
+  local value = params[key]
   if value == nil then return nil end
   if type(value) ~= "string" and type(value) ~= "number" then
     invalid(key .. " must occur once")
@@ -28,14 +25,9 @@ local function valid_did(value)
   return true
 end
 
-local function query(sql, values)
-  if db.backend() ~= "postgres" then error("ActorFollowQueryFailed: actor-follow queries require PostgreSQL", 0) end
-  local ok, result = pcall(db.raw, sql, values)
-  if not ok then error("ActorFollowQueryFailed: actor-follow lookup failed", 0) end
-  return result
-end
+local NULL = json.decode("null")
 
-local function row_view(row)
+local function record_view(row)
   return {
     uri = row.uri,
     cid = row.cid,
@@ -45,12 +37,21 @@ local function row_view(row)
   }
 end
 
+local FOLLOW = "app.certified.graph.follow"
+
+local function query(sql, values)
+  if db.backend() ~= "postgres" then error("ActorFollowQueryFailed: actor-follow queries require PostgreSQL", 0) end
+  local ok, result = pcall(db.raw, sql, values)
+  if not ok then error("ActorFollowQueryFailed: actor-follow lookup failed", 0) end
+  return result
+end
+
 local function query_follow(actor, subject)
   local rows = query(
     "SELECT uri, did, cid, indexed_at::text AS indexed_at, record::text AS record FROM happyview_records WHERE collection = $1 AND did = $2 AND record::jsonb->>'subject' = $3 ORDER BY (record::jsonb->>'createdAt')::timestamptz ASC, uri ASC LIMIT 1",
     { FOLLOW, actor, subject })
   if #rows == 0 then return NULL end
-  return row_view(rows[1])
+  return record_view(rows[1])
 end
 
 local function get_follow()

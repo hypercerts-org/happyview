@@ -1,8 +1,3 @@
-local COLLECTION = "app.certified.location"
-local PROFILE = "app.certified.actor.profile"
-local ORGANIZATION = "app.certified.actor.organization"
-local NULL = json.decode("null")
-
 local function invalid(message)
   error("InvalidRequest: " .. message, 0)
 end
@@ -35,50 +30,11 @@ local function valid_record_key(value)
     and not value:find("[^%w_~%.:%-]")
 end
 
-local function valid_uri(value)
-  if value:find("[?#]") then return false end
+local function valid_record_uri(value)
+  if type(value) ~= "string" or value:find("[?#]") then return false end
   local authority, collection, rkey = value:match("^at://([^/]+)/([^/]+)/([^/]+)$")
-  return authority ~= nil and valid_did(authority) and collection == COLLECTION and valid_record_key(rkey)
-end
-
-local function query(sql, values)
-  local ok, result = pcall(db.raw, sql, values)
-  if not ok then error("LocationQueryFailed: location lookup failed", 0) end
-  return result
-end
-
-local function row_view(row)
-  local record = json.decode(row.record)
-  return {
-    uri = row.uri, cid = row.cid, indexedAt = row.indexed_at, did = row.did,
-    record = record,
-  }
-end
-
-local function hydrate(views)
-  if #views == 0 then return end
-  local dids, seen = {}, {}
-  for _, view in ipairs(views) do
-    if not seen[view.did] then seen[view.did] = true; dids[#dids + 1] = view.did end
-  end
-  local profiles, organizations = {}, {}
-  local function load(collection, target)
-    if #dids == 0 then return end
-    local params, marks = {}, {}
-    params[1] = collection
-    for _, did in ipairs(dids) do params[#params + 1] = did; marks[#marks + 1] = "$" .. #params end
-    local rows = query("SELECT uri, did, cid, indexed_at::text AS indexed_at, record::text AS record FROM happyview_records WHERE collection = $1 AND rkey = 'self' AND did IN (" .. table.concat(marks, ",") .. ")", params)
-    for _, row in ipairs(rows) do target[row.did] = row end
-  end
-  load(PROFILE, profiles)
-  load(ORGANIZATION, organizations)
-  for _, view in ipairs(views) do
-    local profile, organization = profiles[view.did], organizations[view.did]
-    local author = { did = view.did, profile = NULL, organization = NULL }
-    if profile then author.profile = row_view(profile) end
-    if organization then author.organization = row_view(organization) end
-    view.author = author
-  end
+  if not authority or not valid_did(authority) or not valid_record_key(rkey) then return false end
+  return true, collection
 end
 
 local function valid_datetime(value)
@@ -101,6 +57,90 @@ local function valid_datetime(value)
     if not zh or tonumber(zh) > 23 or tonumber(zm) > 59 then return false end
   end
   return true
+end
+
+local function parse_list_limit(params)
+  local limit_value = scalar(params, "limit")
+  if limit_value and not limit_value:match("^%d+$") then invalid("limit must be an integer from 1 through 100") end
+  local limit = limit_value and tonumber(limit_value) or 25
+  if not limit or limit % 1 ~= 0 or limit < 1 or limit > 100 then invalid("limit must be an integer from 1 through 100") end
+  return limit
+end
+
+local function parse_sort_direction(params)
+  local direction = scalar(params, "sortDirection") or "desc"
+  if direction ~= "asc" and direction ~= "desc" then invalid("sortDirection must be 'asc' or 'desc'") end
+  return direction
+end
+
+local function cursor_encode(value)
+  local encoded = json.encode(value)
+  return (encoded:gsub(".", function(char) return string.format("%02x", string.byte(char)) end))
+end
+
+local NULL = json.decode("null")
+
+local function record_view(row)
+  return {
+    uri = row.uri,
+    cid = row.cid,
+    indexedAt = row.indexed_at,
+    did = row.did,
+    record = json.decode(row.record),
+  }
+end
+
+local PROFILE = "app.certified.actor.profile"
+local ORGANIZATION = "app.certified.actor.organization"
+
+local function hydrate_actor_views(actors, run_query)
+  if #actors == 0 then return end
+  local dids, seen = {}, {}
+  for _, actor in ipairs(actors) do
+    if not seen[actor.did] then
+      seen[actor.did] = true
+      dids[#dids + 1] = actor.did
+    end
+  end
+  local profiles, organizations = {}, {}
+  local function load(collection, target)
+    local params, marks = { collection }, {}
+    for _, did in ipairs(dids) do
+      params[#params + 1] = did
+      marks[#marks + 1] = "$" .. #params
+    end
+    local rows = run_query("SELECT uri, did, cid, indexed_at::text AS indexed_at, record::text AS record FROM happyview_records WHERE collection = $1 AND rkey = 'self' AND did IN (" .. table.concat(marks, ",") .. ")", params)
+    for _, row in ipairs(rows) do target[row.did] = row end
+  end
+  load(PROFILE, profiles)
+  load(ORGANIZATION, organizations)
+  for _, actor in ipairs(actors) do
+    actor.profile = profiles[actor.did] and record_view(profiles[actor.did]) or NULL
+    actor.organization = organizations[actor.did] and record_view(organizations[actor.did]) or NULL
+  end
+end
+
+local COLLECTION = "app.certified.location"
+
+local function valid_location_uri(value)
+  local valid, collection = valid_record_uri(value)
+  return valid and collection == COLLECTION
+end
+
+local function query(sql, values)
+  local ok, result = pcall(db.raw, sql, values)
+  if not ok then error("LocationQueryFailed: location lookup failed", 0) end
+  return result
+end
+
+local function hydrate(views)
+  local authors = {}
+  for _, view in ipairs(views) do
+    local author = { did = view.did }
+    view.author = author
+    authors[#authors + 1] = author
+  end
+  hydrate_actor_views(authors, query)
 end
 
 local function array(params, key, validate, description, max_bytes)
@@ -135,11 +175,6 @@ local function add_in(where, params, column, values)
   where[#where + 1] = column .. " IN (" .. table.concat(placeholders, ",") .. ")"
 end
 
-local function cursor_encode(value)
-  local encoded = json.encode(value)
-  return (encoded:gsub(".", function(char) return string.format("%02x", string.byte(char)) end))
-end
-
 local function cursor_decode(token, direction)
   if not token then return nil end
   if #token % 2 ~= 0 or token:find("[^0-9a-f]") then invalid("cursor is malformed") end
@@ -152,7 +187,7 @@ local function cursor_decode(token, direction)
   for key in pairs(value) do
     if key ~= "v" and key ~= "d" and key ~= "t" and key ~= "u" then invalid("cursor is malformed") end
   end
-  if not valid_uri(value.u) or not valid_datetime(value.t) then invalid("cursor is malformed") end
+  if not valid_location_uri(value.u) or not valid_datetime(value.t) then invalid("cursor is malformed") end
   return value
 end
 
@@ -181,7 +216,7 @@ local function query_locations(filters, limit, cursor, direction)
   local more = #rows > limit
   if more then rows[#rows] = nil end
   local views = {}
-  for _, row in ipairs(rows) do views[#views + 1] = row_view(row) end
+  for _, row in ipairs(rows) do views[#views + 1] = record_view(row) end
   hydrate(views)
   local next_cursor
   if more then
@@ -194,14 +229,10 @@ end
 local function list_locations()
   keys_only(params, { authors = true, uris = true, locationTypes = true, limit = true, cursor = true, sortDirection = true })
   local authors = array(params, "authors", valid_did, "valid DIDs")
-  local uris = array(params, "uris", valid_uri, "full app.certified.location AT-URIs with DID authorities")
+  local uris = array(params, "uris", valid_location_uri, "full app.certified.location AT-URIs with DID authorities")
   local types = array(params, "locationTypes", nil, nil, 20)
-  local limit_value = scalar(params, "limit")
-  if limit_value and not limit_value:match("^%d+$") then invalid("limit must be an integer from 1 through 100") end
-  local limit = limit_value and tonumber(limit_value) or 25
-  if not limit or limit % 1 ~= 0 or limit < 1 or limit > 100 then invalid("limit must be an integer from 1 through 100") end
-  local direction = scalar(params, "sortDirection") or "desc"
-  if direction ~= "asc" and direction ~= "desc" then invalid("sortDirection must be 'asc' or 'desc'") end
+  local limit = parse_list_limit(params)
+  local direction = parse_sort_direction(params)
   local cursor = cursor_decode(scalar(params, "cursor"), direction)
   local views, next_cursor = query_locations({ authors = authors, uris = uris, locationTypes = types }, limit, cursor, direction)
   local response = { locations = toarray(views) }

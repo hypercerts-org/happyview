@@ -1,70 +1,6 @@
-local PROFILE = "app.certified.actor.profile"
-local ORGANIZATION = "app.certified.actor.organization"
-
-local function valid_record_key(value)
-  return #value >= 1 and #value <= 512 and value ~= "." and value ~= ".."
-    and not value:find("[^%w_~%.:%-]")
-end
-
 local function valid_follow_uri(value)
-  if type(value) ~= "string" or value:find("[?#]") then return false end
-  local authority, collection, rkey = value:match("^at://([^/]+)/([^/]+)/([^/]+)$")
-  return authority ~= nil and valid_did(authority) and collection == FOLLOW and valid_record_key(rkey)
-end
-
-local function valid_datetime(value)
-  local year, month, day, hour, minute, second, suffix = value:match(
-    "^(%d%d%d%d)%-(%d%d)%-(%d%d)T(%d%d):(%d%d):(%d%d)(.*)$")
-  if not year then return false end
-  year, month, day = tonumber(year), tonumber(month), tonumber(day)
-  hour, minute, second = tonumber(hour), tonumber(minute), tonumber(second)
-  if month < 1 or month > 12 or hour > 23 or minute > 59 or second > 59 then return false end
-  local leap = year % 4 == 0 and (year % 100 ~= 0 or year % 400 == 0)
-  local month_days = { 31, leap and 29 or 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31 }
-  if day < 1 or day > month_days[month] then return false end
-  local fraction, zone = suffix:match("^(%.%d+)(Z)$")
-  if not fraction then fraction, zone = suffix:match("^(%.%d+)([+-]%d%d:%d%d)$") end
-  if not fraction then zone = suffix:match("^(Z)$") end
-  if not zone then zone = suffix:match("^([+-]%d%d:%d%d)$") end
-  if not zone or zone == "-00:00" then return false end
-  if zone ~= "Z" then
-    local zh, zm = zone:match("^[+-](%d%d):(%d%d)$")
-    if not zh or tonumber(zh) > 23 or tonumber(zm) > 59 then return false end
-  end
-  return true
-end
-
-local function hydrate(views)
-  if #views == 0 then return end
-  local dids, seen = {}, {}
-  for _, view in ipairs(views) do
-    if not seen[view.did] then
-      seen[view.did] = true
-      dids[#dids + 1] = view.did
-    end
-  end
-  local profiles, organizations = {}, {}
-  local function load(collection, target)
-    local values, marks = { collection }, {}
-    for _, did in ipairs(dids) do
-      values[#values + 1] = did
-      marks[#marks + 1] = "$" .. #values
-    end
-    local rows = query("SELECT uri, did, cid, indexed_at::text AS indexed_at, record::text AS record FROM happyview_records WHERE collection = $1 AND rkey = 'self' AND did IN (" .. table.concat(marks, ",") .. ")", values)
-    for _, row in ipairs(rows) do target[row.did] = row end
-  end
-  load(PROFILE, profiles)
-  load(ORGANIZATION, organizations)
-  for _, view in ipairs(views) do
-    local profile, organization = profiles[view.did], organizations[view.did]
-    view.profile = profile and row_view(profile) or NULL
-    view.organization = organization and row_view(organization) or NULL
-  end
-end
-
-local function cursor_encode(value)
-  local encoded = json.encode(value)
-  return (encoded:gsub(".", function(char) return string.format("%02x", string.byte(char)) end))
+  local valid, collection = valid_record_uri(value)
+  return valid and collection == FOLLOW
 end
 
 local function cursor_decode(token, direction)
@@ -112,9 +48,9 @@ local function query_actor_follows(mode, actor, limit, cursor, direction)
 
   local views = {}
   for _, row in ipairs(rows) do
-    views[#views + 1] = { did = row.actor_did, follow = row_view(row) }
+    views[#views + 1] = { did = row.actor_did, follow = record_view(row) }
   end
-  hydrate(views)
+  hydrate_actor_views(views, query)
 
   local next_cursor
   if more then
@@ -129,13 +65,8 @@ local function list_actor_follows(mode)
   local actor = scalar(params, "actor")
   if not actor or not valid_did(actor) then invalid("actor must be a valid DID") end
 
-  local limit_value = scalar(params, "limit")
-  if limit_value and not limit_value:match("^%d+$") then invalid("limit must be an integer from 1 through 100") end
-  local limit = limit_value and tonumber(limit_value) or 25
-  if not limit or limit % 1 ~= 0 or limit < 1 or limit > 100 then invalid("limit must be an integer from 1 through 100") end
-
-  local direction = scalar(params, "sortDirection") or "desc"
-  if direction ~= "asc" and direction ~= "desc" then invalid("sortDirection must be 'asc' or 'desc'") end
+  local limit = parse_list_limit(params)
+  local direction = parse_sort_direction(params)
   local cursor = cursor_decode(scalar(params, "cursor"), direction)
   local views, next_cursor = query_actor_follows(mode, actor, limit, cursor, direction)
   local response = { [mode] = toarray(views) }
