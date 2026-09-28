@@ -15,11 +15,17 @@ const sources = [
   ['lua/shared/actorFollow.lua', 'local function query() return "follow" end\n'],
   ['lua/shared/actorFollowLookup.lua', 'local function lookup() return true end\n'],
   ['lua/shared/actorFollowList.lua', 'local function list() return true end\n'],
+  ['lua/shared/profile.lua', 'local function row_view() return "profile" end\n'],
+  ['lua/shared/profileLookup.lua', 'local function lookup() return row_view() end\n'],
+  ['lua/shared/profileList.lua', 'local function profiles_response() return row_view() end\n'],
   ['lua/src/getLocation.lua', 'function handle() return query() end\n'],
   ['lua/src/listLocations.lua', 'function handle() return query() end\n'],
   ['lua/src/getFollow.lua', 'function handle() return query() end\n'],
   ['lua/src/listActorFollowers.lua', 'function handle() return list() end\n'],
   ['lua/src/listActorFollowing.lua', 'function handle() return list() end\n'],
+  ['lua/src/getProfile.lua', 'function handle() return lookup() end\n'],
+  ['lua/src/listProfiles.lua', 'function handle() return profiles_response(false) end\n'],
+  ['lua/src/searchProfiles.lua', 'function handle() return profiles_response(true) end\n'],
 ];
 
 async function withLuaRoot(run) {
@@ -62,6 +68,9 @@ test('checks generated bundles without rewriting stale outputs', async () => {
       'lua/endpoints/getFollow.lua',
       'lua/endpoints/listActorFollowers.lua',
       'lua/endpoints/listActorFollowing.lua',
+      'lua/endpoints/getProfile.lua',
+      'lua/endpoints/listProfiles.lua',
+      'lua/endpoints/searchProfiles.lua',
     ];
     for (const relativePath of expectedStale) {
       await writeFile(path.join(root, relativePath), 'stale bundle\n');
@@ -82,6 +91,9 @@ test('reports missing generated bundles and accepts fresh bundles', async () => 
       'lua/endpoints/getFollow.lua',
       'lua/endpoints/listActorFollowers.lua',
       'lua/endpoints/listActorFollowing.lua',
+      'lua/endpoints/getProfile.lua',
+      'lua/endpoints/listProfiles.lua',
+      'lua/endpoints/searchProfiles.lua',
     ];
     assert.deepEqual(await checkLuaBundles(root), expected);
 
