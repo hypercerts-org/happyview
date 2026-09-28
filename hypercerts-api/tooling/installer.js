@@ -23,9 +23,12 @@ import { readLexiconSource } from './lexicon-source.js';
 /** @typedef {{ config?: AssetConfig | null; lexicon_json?: unknown; body?: unknown }} InstalledAsset */
 /** External GET /admin/lexicons/:id response assertion; response.json() is not runtime-validated. @typedef {{ backfill: boolean; target_collection: string | null; action: string | null; token_cost: number | null; lexicon_json: unknown }} LexiconAdminRow */
 /** External GET /admin/scripts/:id response assertion; response.json() is not runtime-validated. @typedef {{ script_type: string; description: string | null; body: string }} ScriptAdminRow */
-/** @typedef {{ read: (asset: LoadedAsset) => Promise<InstalledAsset | null>; write: (asset: LoadedAsset) => Promise<void> }} AdminClient */
+/** @typedef {{ read: (asset: LoadedAsset) => Promise<InstalledAsset | null>; write: (asset: LoadedAsset) => Promise<void>; listScriptVariables?: () => Promise<unknown>; createScriptVariable?: (key: string, value: string) => Promise<void> }} AdminClient */
 /** @typedef {{ changed: string[]; unchanged: string[] }} InstallResult */
-/** @typedef {Error & { completed: string[]; remaining: string[] }} PartialInstallError */
+/** @typedef {{ key: string; status: 'exists-unverified' | 'created' }} ResolverSetting */
+/** @typedef {{ env?: Record<string, string | undefined>; isTTY?: boolean; ask?: (prompt: string) => Promise<string>; onNotice?: (message: string) => void }} ApplyAssetsOptions */
+/** @typedef {InstallResult & { resolverSetting?: ResolverSetting }} ApplyAssetsResult */
+/** @typedef {Error & { completed: string[]; remaining: string[]; resolverSetting?: ResolverSetting }} PartialInstallError */
 
 const require = createRequire(new URL('../package.json', import.meta.url));
 
@@ -140,6 +143,13 @@ export function createAdminClient({ baseUrl, token, fetchImpl = globalThis.fetch
         await request('POST', '/admin/scripts', { id: asset.id, script_type: asset.config.script_type, description: asset.config.description, body: asset.body });
       }
     },
+    async listScriptVariables() {
+      return request('GET', '/admin/script-variables');
+    },
+    /** @param {string} key @param {string} value */
+    async createScriptVariable(key, value) {
+      await request('POST', '/admin/script-variables', { key, value });
+    },
   };
 }
 
@@ -209,10 +219,117 @@ async function writeMissingAssets(states, client) {
   return { changed, unchanged: states.filter((entry) => entry.state === 'unchanged').map(({ asset }) => asset.id) };
 }
 
-/** @param {LoadedAsset[]} assets @param {AdminClient} client @returns {Promise<InstallResult>} */
-export async function applyAssets(assets, client) {
-  const states = await preflightAssets(orderAssets(assets), client);
-  return writeMissingAssets(states, client);
+const PROFILE_LOOKUP_ASSET_IDS = new Set([
+  'app.certified.actor.getProfile',
+  'xrpc.query:app.certified.actor.getProfile',
+]);
+const RESOLVER_VARIABLE = 'HYPERCERTS_HANDLE_RESOLVER_URL';
+
+/** @param {string} value @returns {boolean} */
+function hasUnsafeResolverCharacter(value) {
+  for (const character of value) {
+    const code = character.codePointAt(0) ?? 0;
+    if (character === '\\' || code <= 0x20 || code === 0x7f || character.trim() === '') return true;
+  }
+  return false;
+}
+
+/** @param {string} value @returns {string} */
+function validateResolverUrl(value) {
+  const input = typeof value === 'string' ? value.trim() : '';
+  let target;
+  try {
+    const authority = /^https:\/\/([^/?#]+)\/?$/i.exec(input)?.[1];
+    if (!input || input.length > 2048 || hasUnsafeResolverCharacter(input) || input.includes('%')
+      || !authority || authority.endsWith(':')) throw new Error('invalid resolver URL syntax');
+    target = new URL(input);
+  } catch {
+    throw new Error(`${RESOLVER_VARIABLE} must be a valid HTTPS resolver base URL with no credentials, path, query, fragment, whitespace, or unsafe syntax; set a resolver origin such as https://resolver.example`);
+  }
+  const host = target.hostname.replace(/^\[|\]$/g, '');
+  const labels = host.split('.');
+  const validHost = target.hostname.startsWith('[')
+    ? /^[\da-f:.]+$/i.test(host) && host.includes(':')
+    : host.length <= 253 && labels.every((label) => label.length > 0 && label.length <= 63
+      && /^[a-z\d-]+$/i.test(label) && !label.startsWith('-') && !label.endsWith('-'));
+  const port = Number(target.port);
+  const validPort = target.port === '' || (port >= 1 && port <= 65535);
+  if (target.protocol !== 'https:' || target.username || target.password || target.search || target.hash
+    || target.pathname !== '/' || !target.hostname || !validHost || !validPort) {
+    throw new Error(`${RESOLVER_VARIABLE} must be a valid HTTPS resolver base URL with no credentials, path, query, fragment, whitespace, or unsafe syntax; set a resolver origin such as https://resolver.example`);
+  }
+  return target.origin;
+}
+
+/** @param {string} operation @param {string} permission @param {unknown} cause @returns {Error} */
+function resolverAdminFailure(operation, permission, cause) {
+  const reason = cause instanceof Error ? cause.message : 'unknown admin request failure';
+  return new Error(`Unable to ${operation} ${RESOLVER_VARIABLE}: ${reason}. Ensure the HappyView admin token has ${permission} permission and retry.`, { cause });
+}
+
+/** @param {AdminClient} client @param {{ env: Record<string, string | undefined>; isTTY: boolean; ask: (prompt: string) => Promise<string>; onNotice: (message: string) => void }} options @returns {Promise<ResolverSetting>} */
+async function installResolverSetting(client, { env, isTTY, ask, onNotice }) {
+  let variables;
+  try {
+    if (typeof client.listScriptVariables !== 'function') throw new Error('admin client does not support script-variable listing');
+    variables = await client.listScriptVariables();
+  } catch (cause) {
+    throw resolverAdminFailure('inspect', 'script-variables:read', cause);
+  }
+  if (!Array.isArray(variables) || variables.some((item) => !item || typeof item.key !== 'string')) {
+    throw resolverAdminFailure('inspect', 'script-variables:read', new Error('HappyView returned an invalid script-variable list'));
+  }
+  if (variables.some(({ key }) => key === RESOLVER_VARIABLE)) {
+    const message = `${RESOLVER_VARIABLE} already exists in HappyView; its script-variable list exposes only a masked preview, so its actual value cannot be verified.`;
+    onNotice(message);
+    return { key: RESOLVER_VARIABLE, status: 'exists-unverified' };
+  }
+
+  let value = typeof env[RESOLVER_VARIABLE] === 'string' ? env[RESOLVER_VARIABLE].trim() : '';
+  if (!value) {
+    if (!isTTY) {
+      throw new Error(`${RESOLVER_VARIABLE} is required for getProfile handle lookups; set an HTTPS resolver base URL in the environment or rerun pnpm install:api in an interactive terminal to enter it (see hypercerts-api/README.md)`);
+    }
+    value = await ask('Handle resolver HTTPS base URL');
+  }
+  const resolverUrl = validateResolverUrl(value);
+
+  try {
+    if (typeof client.createScriptVariable !== 'function') throw new Error('admin client does not support script-variable creation');
+    await client.createScriptVariable(RESOLVER_VARIABLE, resolverUrl);
+  } catch (cause) {
+    throw resolverAdminFailure('create', 'script-variables:create', cause);
+  }
+  return { key: RESOLVER_VARIABLE, status: 'created' };
+}
+
+/** @param {LoadedAsset[]} assets @param {AdminClient} client @param {ApplyAssetsOptions} [options] @returns {Promise<ApplyAssetsResult>} */
+export async function applyAssets(assets, client, options = {}) {
+  const ordered = orderAssets(assets);
+  const states = await preflightAssets(ordered, client);
+  if (!ordered.some(({ id }) => PROFILE_LOOKUP_ASSET_IDS.has(id))) {
+    return writeMissingAssets(states, client);
+  }
+
+  const resolverSetting = await installResolverSetting(client, {
+    env: options.env ?? process.env,
+    isTTY: options.isTTY ?? Boolean(process.stdin.isTTY && process.stdout.isTTY),
+    ask: options.ask ?? askOnTerminal,
+    onNotice: options.onNotice ?? ((message) => console.log(message)),
+  });
+  try {
+    const result = await writeMissingAssets(states, client);
+    return { ...result, resolverSetting };
+  } catch (cause) {
+    if (resolverSetting.status !== 'created') throw cause;
+    const partialFailure = cause instanceof Error ? /** @type {PartialInstallError} */ (cause) : undefined;
+    const reason = cause instanceof Error ? cause.message : String(cause);
+    const error = /** @type {PartialInstallError} */ (new Error(`Install partially failed after creating ${RESOLVER_VARIABLE}; the setting remains on HappyView and was not deleted. ${reason}`, { cause }));
+    error.completed = partialFailure?.completed ?? [];
+    error.remaining = partialFailure?.remaining ?? [];
+    error.resolverSetting = resolverSetting;
+    throw error;
+  }
 }
 
 // Root manifest (paths are relative to this file):
