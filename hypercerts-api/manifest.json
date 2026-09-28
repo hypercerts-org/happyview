@@ -1,9 +1,9 @@
 {
-  "name": "hypercerts-location-actor-follow-profile-api",
+  "name": "hypercerts-location-actor-follow-profile-organization-api",
   "collection": "app.certified.location",
   "targetHappyViewRevision": "a2f347e605d7cd9c11669b320e43c10dbfe982e3",
   "runtimeCompatibility": "compatible-at-target-revision",
-  "status": "handlers-implemented; location-and-actor-follow-runtime-validated-at-target-revision",
+  "status": "handlers-implemented; location-and-actor-follow-runtime-validated-at-target-revision; organization-runtime-validation-pending",
   "handlerStatus": {
     "getLocation": "implemented",
     "listLocations": "implemented",
@@ -13,12 +13,15 @@
     "getProfile": "implemented",
     "getProfiles": "implemented",
     "listProfiles": "implemented",
-    "searchProfiles": "implemented"
+    "searchProfiles": "implemented",
+    "getOrganization": "implemented",
+    "listOrganizations": "implemented",
+    "searchOrganizations": "implemented"
   },
   "authentication": {
     "decision": "public",
     "unresolved": false,
-    "note": "The location, actor-follow, and actor-profile query endpoints expose public record reads and require no caller authentication."
+    "note": "The location, actor-follow, actor-profile, and organization query endpoints expose public record reads and require no caller authentication."
   },
   "luaBuild": {
     "command": "pnpm build:lua",
@@ -34,7 +37,9 @@
       "lua/shared/actorFollowList.lua",
       "lua/shared/profile.lua",
       "lua/shared/profileLookup.lua",
-      "lua/shared/profileList.lua"
+      "lua/shared/profileList.lua",
+      "lua/shared/organization.lua",
+      "lua/shared/organizationList.lua"
     ],
     "endpointSources": [
       "lua/src/getLocation.lua",
@@ -45,7 +50,10 @@
       "lua/src/getProfile.lua",
       "lua/src/getProfiles.lua",
       "lua/src/listProfiles.lua",
-      "lua/src/searchProfiles.lua"
+      "lua/src/searchProfiles.lua",
+      "lua/src/getOrganization.lua",
+      "lua/src/listOrganizations.lua",
+      "lua/src/searchOrganizations.lua"
     ],
     "installedHandlers": "lua/endpoints/"
   },
@@ -101,6 +109,18 @@
     {
       "id": "app.certified.actor.searchProfiles",
       "path": "lexicons/app.certified.actor.searchProfiles.json"
+    },
+    {
+      "id": "app.certified.actor.getOrganization",
+      "path": "lexicons/app.certified.actor.getOrganization.json"
+    },
+    {
+      "id": "app.certified.actor.listOrganizations",
+      "path": "lexicons/app.certified.actor.listOrganizations.json"
+    },
+    {
+      "id": "app.certified.actor.searchOrganizations",
+      "path": "lexicons/app.certified.actor.searchOrganizations.json"
     },
     {
       "id": "app.certified.actor.organization",
@@ -226,6 +246,7 @@
   "modules": [
     "modules/location/manifest.json",
     "modules/actor-follow/manifest.json",
-    "modules/profile/manifest.json"
+    "modules/profile/manifest.json",
+    "modules/organization/manifest.json"
   ]
 }
