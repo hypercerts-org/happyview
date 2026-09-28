@@ -1,51 +1,75 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
+import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { spawnSync } from 'node:child_process';
 import { loadAssets } from './installer.js';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
-const read = (relative) => readFile(new URL(`../${relative}`, import.meta.url), 'utf8');
+const read = (relative) => readFile(path.resolve(root, relative), 'utf8');
+const manifestPath = path.join(root, 'manifest.json');
 
-test('checked-in Lua bundles reproduce from shared and endpoint sources', async () => {
-  const [shared, getSource, listSource, getBeforeBuild, listBeforeBuild] = await Promise.all([
-    read('lua/shared/location.lua'), read('lua/src/getLocation.lua'), read('lua/src/listLocations.lua'),
-    readFile(new URL('../lua/endpoints/getLocation.lua', import.meta.url)),
-    readFile(new URL('../lua/endpoints/listLocations.lua', import.meta.url)),
-  ]);
-  const expectedGet = Buffer.from(`${shared.trimEnd()}\n\n${getSource}`);
-  const expectedList = Buffer.from(`${shared.trimEnd()}\n\n${listSource}`);
-  assert.deepEqual(getBeforeBuild, expectedGet, 'getLocation bundle is stale; run pnpm build:lua');
-  assert.deepEqual(listBeforeBuild, expectedList, 'listLocations bundle is stale; run pnpm build:lua');
+async function declaredLuaHandlers() {
+  const bundle = JSON.parse(await read('manifest.json'));
+  const { assets } = await loadAssets(manifestPath);
+  const loadedById = new Map(assets.map((asset) => [asset.id, asset]));
+  const handlers = [];
 
-  const result = spawnSync(process.execPath, ['tooling/build-lua.js'], { cwd: root, encoding: 'utf8' });
-  assert.equal(result.status, 0, result.stderr);
-  const [getBuilt, listBuilt] = await Promise.all([
-    read('lua/endpoints/getLocation.lua'), read('lua/endpoints/listLocations.lua'),
-  ]);
-  assert.equal(getBuilt, `${shared.trimEnd()}\n\n${getSource}`);
-  assert.equal(listBuilt, `${shared.trimEnd()}\n\n${listSource}`);
-  assert.match(getBuilt, /local function get_location\(\)/);
-  assert.doesNotMatch(getBuilt, /local function list_locations\(\)/);
-  assert.match(listBuilt, /local function list_locations\(\)/);
-  assert.doesNotMatch(listBuilt, /local function get_location\(\)/);
-  assert.doesNotMatch(getBuilt, /\brequire\s*\(/);
-  assert.doesNotMatch(listBuilt, /\brequire\s*\(/);
+  for (const modulePath of bundle.modules) {
+    const moduleFile = path.resolve(root, modulePath);
+    const moduleManifest = JSON.parse(await readFile(moduleFile, 'utf8'));
+    for (const declaration of moduleManifest.assets) {
+      if (declaration.kind !== 'script' || declaration.config.script_type !== 'lua' || !declaration.id.startsWith('xrpc.query:')) continue;
+      handlers.push({
+        declaration,
+        moduleDirectory: path.dirname(moduleFile),
+        loaded: loadedById.get(declaration.id),
+      });
+    }
+  }
+
+  return { bundle, handlers };
+}
+
+function sourcePaths({ declaration, moduleDirectory }) {
+  const shared = declaration.sharedSourcePaths ?? (declaration.sharedSourcePath ? [declaration.sharedSourcePath] : []);
+  assert.ok(declaration.sourcePath, `${declaration.id} must declare its endpoint source`);
+  return {
+    endpoint: path.resolve(moduleDirectory, declaration.sourcePath),
+    shared: shared.map((source) => path.resolve(moduleDirectory, source)),
+  };
+}
+
+test('checked-in Lua bundles reproduce from declared handler sources', async () => {
+  const { handlers } = await declaredLuaHandlers();
+  assert.ok(handlers.length > 0, 'bundle must declare at least one Lua query handler');
+  for (const handler of handlers) {
+    const sources = sourcePaths(handler);
+    const contents = await Promise.all([...sources.shared, sources.endpoint].map((file) => readFile(file, 'utf8')));
+    const bundle = `${contents.map((source) => source.trimEnd()).join('\n\n')}\n`;
+    const built = await readFile(path.resolve(handler.moduleDirectory, handler.declaration.path), 'utf8');
+    assert.equal(built, bundle, `${handler.declaration.id} bundle is stale; run pnpm build:lua`);
+    assert.match(built, /function handle\(\)/, `${handler.declaration.id} must define handle()`);
+    assert.doesNotMatch(built, /\brequire\s*\(/, `${handler.declaration.id} must be standalone`);
+  }
 });
 
-test('manifest installs only built standalone handlers and records their source inputs', async () => {
-  const manifest = JSON.parse(await read('manifest.json'));
-  const { assets } = await loadAssets(fileURLToPath(new URL('../manifest.json', import.meta.url)));
-  assert.equal(manifest.handlerStatus.getLocation, 'implemented');
-  assert.equal(manifest.handlerStatus.listLocations, 'implemented');
-  assert.equal(manifest.authentication.unresolved, false);
-  for (const name of ['getLocation', 'listLocations']) {
-    const asset = assets.find(({ id }) => id === `xrpc.query:app.certified.location.${name}`);
-    assert.equal(asset.kind, 'script');
-    assert.equal(asset.path, `../../lua/endpoints/${name}.lua`);
-    assert.equal(asset.sourcePath, `../../lua/src/${name}.lua`);
-    assert.equal(asset.sharedSourcePath, '../../lua/shared/location.lua');
-    assert.match(asset.body, /function handle\(\)/);
+test('manifest installs declared Lua query handlers from their built bundles and sources', async () => {
+  const { bundle, handlers } = await declaredLuaHandlers();
+  assert.equal(bundle.authentication.unresolved, false);
+  assert.ok(handlers.length > 0, 'bundle must declare at least one Lua query handler');
+
+  for (const handler of handlers) {
+    const { declaration, loaded } = handler;
+    const name = declaration.id.slice('xrpc.query:'.length).split('.').at(-1);
+    assert.ok(loaded, `missing loaded handler ${declaration.id}`);
+    assert.equal(bundle.handlerStatus[name], 'implemented', `${name} must be marked implemented`);
+    assert.equal(loaded.kind, 'script');
+    assert.equal(loaded.path, declaration.path);
+    assert.equal(loaded.sourcePath, declaration.sourcePath);
+    const declaredShared = declaration.sharedSourcePaths ?? (declaration.sharedSourcePath ? [declaration.sharedSourcePath] : []);
+    const loadedShared = loaded.sharedSourcePaths ?? (loaded.sharedSourcePath ? [loaded.sharedSourcePath] : []);
+    assert.deepEqual(loadedShared, declaredShared);
+    assert.match(loaded.body, /function handle\(\)/);
   }
 });
