@@ -4,7 +4,7 @@
   "defs": {
     "main": {
       "type": "query",
-      "description": "Lists actors named as subjects by the requested actor's indexed follow records. Authentication is not required and the response is not personalized. Duplicate relationships are collapsed before pagination.",
+      "description": "Lists actors named as subjects by the requested actor's indexed follow records. Authentication is not required. Duplicate relationships are collapsed before pagination.",
       "parameters": {
         "type": "params",
         "required": ["actor"],

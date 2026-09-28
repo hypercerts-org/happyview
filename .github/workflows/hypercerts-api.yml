@@ -27,6 +27,12 @@ jobs:
         with:
           luaVersion: "5.4"
 
+      - name: Add Lua 5.4 executable alias
+        run: |
+          lua_bin="$(command -v lua)"
+          ln -s "$lua_bin" "${lua_bin%/*}/lua5.4"
+          lua5.4 -e 'assert(_VERSION == "Lua 5.4", "expected Lua 5.4")'
+
       - uses: leafo/gh-actions-luarocks@35d062def313a7699a0d513e996bcf4352f05389 # v6.1.0
 
       - name: Install Luacheck
@@ -45,5 +51,14 @@ jobs:
       - name: Install Node dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Lint and test
-        run: pnpm check
+      - name: Check generated Lua bundles
+        run: pnpm run check:generated
+
+      - name: Lint
+        run: pnpm run lint
+
+      - name: Typecheck
+        run: pnpm run typecheck
+
+      - name: Unit tests
+        run: pnpm run test:unit

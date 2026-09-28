@@ -15,6 +15,9 @@ export default [
     rules: {
       ...js.configs.recommended.rules,
       eqeqeq: ["error", "always", { null: "ignore" }],
+      "no-eval": "error",
+      "no-implied-eval": "error",
+      "no-new-func": "error",
       "no-console": "error",
       "no-implicit-coercion": "error",
       "no-param-reassign": ["error", { props: true }],
