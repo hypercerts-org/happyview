@@ -5,6 +5,7 @@ import { chmod, copyFile, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:f
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { locationRecords, profileRecords, organizationRecords } from '../tests/fixtures/records.js';
+import { actorFollowRecords, actorFollowProfileRecords, actorFollowOrganizationRecords } from '../tests/fixtures/actor-follows.js';
 import { badDateLocations } from '../tests/fixtures/bad-location-dates.js';
 import { buildBadDateSeedInput, buildSeedInput, psqlTargetArgs } from './seed.js';
 
@@ -17,6 +18,7 @@ async function withCopiedSeedModule(run) {
     await mkdir(path.join(root, 'tests/fixtures'), { recursive: true });
     await copyFile(new URL('./seed.js', import.meta.url), path.join(root, 'tooling/seed.js'));
     await copyFile(new URL('../tests/fixtures/records.js', import.meta.url), path.join(root, 'tests/fixtures/records.js'));
+    await copyFile(new URL('../tests/fixtures/actor-follows.js', import.meta.url), path.join(root, 'tests/fixtures/actor-follows.js'));
     await copyFile(new URL('../tests/fixtures/bad-dates.js', import.meta.url), path.join(root, 'tests/fixtures/bad-dates.js'));
     await copyFile(new URL('../tests/fixtures/bad-location-dates.js', import.meta.url), path.join(root, 'tests/fixtures/bad-location-dates.js'));
     await writeFile(path.join(root, 'package.json'), '{"type":"module"}\n');
@@ -167,7 +169,10 @@ test('seed CLI rejects an absolute path that is not executable', async () => {
 });
 
 test('bad-date location rows stay isolated from routine fixtures', () => {
-  const normal = [...locationRecords, ...profileRecords, ...organizationRecords];
+  const normal = [
+    ...locationRecords, ...profileRecords, ...organizationRecords,
+    ...actorFollowRecords, ...actorFollowProfileRecords, ...actorFollowOrganizationRecords,
+  ];
   const normalDids = new Set(normal.map(({ did }) => did));
   const normalUris = new Set(normal.map(({ uri }) => uri));
   assert.equal(new Set(badDateLocations.map(({ uri }) => uri)).size, 14);
@@ -210,7 +215,10 @@ test('bad-date CLI is opt-in, passes eight-parameter SQL to selected executable,
     assert.equal(normal.status, 0, normal.stderr);
     const normalSql = await readFile(capture, 'utf8');
     const executions = normalSql.split('\n').filter((line) => line.startsWith('EXECUTE happyview_fixture('));
-    const expectedRows = [...locationRecords, ...profileRecords, ...organizationRecords];
+    const expectedRows = [
+      ...locationRecords, ...profileRecords, ...organizationRecords,
+      ...actorFollowRecords, ...actorFollowProfileRecords, ...actorFollowOrganizationRecords,
+    ];
     assert.equal(executions.length, expectedRows.length);
     for (const row of expectedRows) {
       const matching = executions.filter((line) => line.startsWith(`EXECUTE happyview_fixture(E'${row.uri}', `));
