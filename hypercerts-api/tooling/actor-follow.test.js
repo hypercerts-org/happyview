@@ -60,7 +60,7 @@ function cursor({ direction = 'desc', timestamp = '2025-01-02T03:04:05.000000Z',
   return Buffer.from(JSON.stringify({ v: 1, d: direction, t: timestamp, u: uri }), 'utf8').toString('hex');
 }
 
-function runLua({ endpoint, params, rows = [], profiles = [], organizations = [], backend = 'postgres', queryFailure = false, expectError, expectedCalls = 0, assertions }) {
+function runLua({ endpoint, params, rows = [], profiles = [], organizations = [], totalCount = rows.length, backend = 'postgres', queryFailure = false, expectError, expectedCalls = 0, assertions }) {
   const endpointPath = `lua/endpoints/${endpoint}.lua`;
   assert.ok(existsSync(`${root}/${endpointPath}`), `${endpointPath} must be generated before exercising the handler`);
   const records = Object.fromEntries([
@@ -74,6 +74,7 @@ local RECORDS = ${lua(records)}
 local rows = ${lua(rows)}
 local profiles = ${lua(profiles)}
 local organizations = ${lua(organizations)}
+local totalCount = ${totalCount}
 local calls = {}
 local function decode_cursor(value)
   local version = tonumber(value:match('"v":(%d+)'))
@@ -102,7 +103,18 @@ db = {
   raw = function(sql, values)
     calls[#calls + 1] = { sql = sql, values = values }
     if ${queryFailure ? 'true' : 'false'} then error('fixture database failure') end
-    if values[1] == '${followCollection}' then return rows end
+    if values[1] == '${followCollection}' then
+      if not sql:find('total_count', 1, true) then return rows end
+      if #rows == 0 then return { { total_count = totalCount } } end
+      local countedRows = {}
+      for index, row in ipairs(rows) do
+        local countedRow = {}
+        for key, value in pairs(row) do countedRow[key] = value end
+        countedRow.total_count = totalCount
+        countedRows[index] = countedRow
+      end
+      return countedRows
+    end
     if values[1] == '${profileCollection}' then return profiles end
     if values[1] == '${organizationCollection}' then return organizations end
     error('unexpected collection ' .. tostring(values[1]))
@@ -156,10 +168,13 @@ test('actor-follow query Lexicons validate the endpoint inputs, nullable lookup,
   assert.deepEqual(getFollow.defs.output.nullable, ['follow']);
   assert.deepEqual(Object.keys(followers.defs.main.parameters.properties).sort(), ['actor', 'cursor', 'limit', 'sortDirection']);
   assert.deepEqual(Object.keys(following.defs.main.parameters.properties).sort(), ['actor', 'cursor', 'limit', 'sortDirection']);
-  for (const query of [followers, following]) {
+  for (const [query, outputKey] of [[followers, 'followers'], [following, 'following']]) {
     assert.equal(query.defs.main.parameters.properties.limit.minimum, 1);
     assert.equal(query.defs.main.parameters.properties.limit.maximum, 100);
     assert.equal(query.defs.main.output.encoding, 'application/json');
+    assert.deepEqual(query.defs.output.required, [outputKey, 'totalCount']);
+    assert.equal(query.defs.output.properties.totalCount.type, 'integer');
+    assert.equal(query.defs.output.properties.totalCount.minimum, 0);
   }
   const sharedDefinitions = byId.get('org.hypercerts.api.defs');
   const followView = lexicons.getDefOrThrow('app.certified.graph.getFollow#followRecordView');
@@ -283,6 +298,39 @@ assert(calls[1].sql:find('did = $2', 1, true) and calls[1].sql:find('subject_did
 assert(calls[1].sql:find("ORDER BY sort_at ASC, uri ASC", 1, true))
 `,
   });
+});
+
+test('actor-follow totalCount covers all collapsed relationships before pagination, including empty pages', () => {
+  const cases = [
+    { endpoint: 'listActorFollowers', outputKey: 'followers', row: followRow('counted-follower', follower, follower, '2025-01-05T00:00:00Z') },
+    { endpoint: 'listActorFollowing', outputKey: 'following', row: followRow('counted-following', actor, subject, '2025-01-05T00:00:00Z', { subjectDid: subject }) },
+  ];
+
+  for (const { endpoint, outputKey, row } of cases) {
+    const assertions = `
+assert(result.totalCount == 4 and type(result.totalCount) == 'number')
+assert(#result.${outputKey} == 1)
+local sql = calls[1].sql
+local countCte = assert(sql:find('total AS (SELECT COUNT(*) AS total_count FROM representatives)', 1, true))
+local pageCte = assert(sql:find('page AS (SELECT', 1, true))
+local cursorFilter = assert(sql:find('(sort_at, uri) <', 1, true))
+assert(countCte < pageCte and pageCte < cursorFilter, 'count the full representative set before applying cursor pagination')
+assert(sql:find('LEFT JOIN page', 1, true), 'retain the count when the page has no rows')
+`;
+    runLua({
+      endpoint,
+      params: { actor, limit: '1', sortDirection: 'desc', cursor: cursor({ direction: 'desc', timestamp: '2025-01-06T00:00:00.000000Z' }) },
+      rows: [row], totalCount: 4,
+      assertions,
+    });
+
+    runLua({
+      endpoint,
+      params: { actor, limit: '1', sortDirection: 'desc', cursor: cursor({ direction: 'desc', timestamp: '2024-12-31T00:00:00.000000Z' }) },
+      rows: [], totalCount: 4,
+      assertions: `assert(#result.${outputKey} == 0 and result.cursor == nil)\nassert(result.totalCount == 4 and type(result.totalCount) == 'number')\nassert(calls[1].sql:find('(sort_at, uri) <', 1, true), 'apply the beyond-end cursor to the page')\n`,
+    });
+  }
 });
 
 test('actor-follow listing defaults to 25, allows 100, and returns empty arrays without cursors', () => {

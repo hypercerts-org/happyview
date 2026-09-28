@@ -41,12 +41,17 @@
     },
     "output": {
       "type": "object",
-      "required": ["following"],
+      "required": ["following", "totalCount"],
       "properties": {
         "following": {
           "type": "array",
           "items": { "type": "ref", "ref": "app.certified.graph.getFollow#actorFollowView" },
           "description": "Outgoing relationships, with each displayed DID identifying the actor named as the follow subject."
+        },
+        "totalCount": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of matching relationships after duplicate relationships are collapsed, before cursor and limit are applied."
         },
         "cursor": {
           "type": "string",

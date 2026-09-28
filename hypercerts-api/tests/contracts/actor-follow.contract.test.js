@@ -53,6 +53,7 @@ async function collectPages(nsid, outputKey, actor, direction, pageCount) {
   let cursor;
   for (let pageIndex = 0; pageIndex < pageCount; pageIndex += 1) {
     const page = await get(nsid, { actor, limit: 1, sortDirection: direction, cursor });
+    assert.equal(page.totalCount, pageCount, `${nsid} ${direction} totalCount should be independent of pagination`);
     assert.equal(page[outputKey].length, 1, `${nsid} ${direction} page ${pageIndex + 1} should contain one relationship`);
     items.push(page[outputKey][0]);
     const hasNextPage = pageIndex < pageCount - 1;
@@ -83,6 +84,7 @@ test('follower and following queries preserve direction, publisher metadata, and
   const incoming = await get('app.certified.graph.listActorFollowers', {
     actor: primarySubject, sortDirection: 'asc', limit: 100,
   });
+  assert.equal(incoming.totalCount, 2);
   assert.deepEqual(incoming.followers, [
     actorView(
       publisher,
@@ -107,6 +109,7 @@ test('follower and following queries preserve direction, publisher metadata, and
     actorView(secondSubject, row('3jzfcijpj2z2d'), sidecar(actorFollowProfileRecords, secondSubject), undefined),
     actorView(thirdSubject, row('3jzfcijpj2z2f'), undefined, undefined),
   ]);
+  assert.equal(outgoing.totalCount, 3);
   assert.equal(outgoing.cursor, undefined);
   assert.equal(outgoing.following[0].follow.did, publisher, 'nested record metadata identifies its publisher');
   assert.equal(outgoing.following[0].follow.record.$type, followCollection);

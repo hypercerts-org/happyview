@@ -4,7 +4,7 @@ This directory contains the tooling for building and testing a Hypercerts XRPC A
 
 **Current status:** The root `manifest.json` includes the location and actor-follow query slices. Build their Lua handlers and run the offline checks before installing the bundle on an approved HappyView target.
 
-The actor-follow slice exposes `app.certified.graph.getFollow`, `app.certified.graph.listActorFollowers`, and `app.certified.graph.listActorFollowing`, backed by the pinned `app.certified.graph.follow` record Lexicon.
+The actor-follow slice exposes `app.certified.graph.getFollow`, `app.certified.graph.listActorFollowers`, and `app.certified.graph.listActorFollowing`, backed by the pinned `app.certified.graph.follow` record Lexicon. Both listing queries return a required `totalCount` for the complete deduplicated relationship set, independent of cursor and limit.
 
 ## Get started
 
