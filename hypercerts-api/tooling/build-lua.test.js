@@ -18,6 +18,11 @@ const sources = [
   ['lua/shared/profile.lua', 'local function row_view() return "profile" end\n'],
   ['lua/shared/profileLookup.lua', 'local function lookup() return row_view() end\n'],
   ['lua/shared/profileList.lua', 'local function profiles_response() return row_view() end\n'],
+  ['lua/shared/organization.lua', 'local function organization_actor_view() return row_view() end\n'],
+  ['lua/shared/organizationList.lua', 'local function organizations_response() return organization_actor_view() end\n'],
+  ['lua/src/getOrganization.lua', 'function handle() return organization_actor_view() end\n'],
+  ['lua/src/listOrganizations.lua', 'function handle() return organizations_response(false) end\n'],
+  ['lua/src/searchOrganizations.lua', 'function handle() return organizations_response(true) end\n'],
   ['lua/src/getLocation.lua', 'function handle() return query() end\n'],
   ['lua/src/listLocations.lua', 'function handle() return query() end\n'],
   ['lua/src/getFollow.lua', 'function handle() return query() end\n'],
@@ -74,6 +79,34 @@ test('builds getProfiles from the shared profile view and endpoint sources', asy
   });
 });
 
+test('builds the organization lookup from its declared shared and endpoint sources', async () => {
+  await withLuaRoot(async (root) => {
+    await buildLuaBundles(root);
+    assert.equal(
+      await readFile(path.join(root, 'lua/endpoints/getOrganization.lua'), 'utf8'),
+      [
+        'local function organization_actor_view() return row_view() end',
+        'function handle() return organization_actor_view() end',      ].join('\n\n') + '\n',
+    );
+  });
+});
+
+test('builds listing and search handlers from their declared organization sources', async () => {
+  await withLuaRoot(async (root) => {
+    await buildLuaBundles(root);
+    for (const name of ['listOrganizations', 'searchOrganizations']) {
+      assert.equal(
+        await readFile(path.join(root, `lua/endpoints/${name}.lua`), 'utf8'),
+        [
+          'local function organization_actor_view() return row_view() end',
+          'local function organizations_response() return organization_actor_view() end',
+          `function handle() return organizations_response(${name === 'searchOrganizations'}) end`,
+        ].join('\n\n') + '\n',
+      );
+    }
+  });
+});
+
 test('checks generated bundles without rewriting stale outputs', async () => {
   await withLuaRoot(async (root) => {
     const expectedStale = [
@@ -86,6 +119,9 @@ test('checks generated bundles without rewriting stale outputs', async () => {
       'lua/endpoints/getProfiles.lua',
       'lua/endpoints/listProfiles.lua',
       'lua/endpoints/searchProfiles.lua',
+      'lua/endpoints/getOrganization.lua',
+      'lua/endpoints/listOrganizations.lua',
+      'lua/endpoints/searchOrganizations.lua',
     ];
     for (const relativePath of expectedStale) {
       await writeFile(path.join(root, relativePath), 'stale bundle\n');
@@ -110,6 +146,9 @@ test('reports missing generated bundles and accepts fresh bundles', async () => 
       'lua/endpoints/getProfiles.lua',
       'lua/endpoints/listProfiles.lua',
       'lua/endpoints/searchProfiles.lua',
+      'lua/endpoints/getOrganization.lua',
+      'lua/endpoints/listOrganizations.lua',
+      'lua/endpoints/searchOrganizations.lua',
     ];
     assert.deepEqual(await checkLuaBundles(root), expected);
 
