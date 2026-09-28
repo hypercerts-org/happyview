@@ -122,6 +122,13 @@ end
 
 local FOLLOW = "app.certified.graph.follow"
 
+-- Guard the cast inside CASE; a WHERE filter cannot protect it from planner reordering.
+local function follow_sort_key()
+  local created = "record::jsonb->>'createdAt'"
+  local timestamp_pattern = "^[0-9]{4}-[0-9]{2}-[0-9]{2}T([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]([.][0-9]+)?(Z|[+-]([01][0-9]|2[0-3]):[0-5][0-9])$"
+  return "CASE WHEN jsonb_typeof(record::jsonb->'createdAt') = 'string' AND " .. created .. " ~ '" .. timestamp_pattern .. "' AND " .. created .. " !~ '-00:00$' AND pg_input_is_valid(" .. created .. ", 'timestamptz') THEN (" .. created .. ")::timestamptz ELSE COALESCE(indexed_at::timestamptz, created_at::timestamptz) END"
+end
+
 local function query(sql, values)
   if db.backend() ~= "postgres" then error("ActorFollowQueryFailed: actor-follow queries require PostgreSQL", 0) end
   local ok, result = pcall(db.raw, sql, values)
@@ -172,7 +179,7 @@ local function query_actor_follows(mode, actor, limit, cursor, direction)
   values[#values + 1] = limit + 1
   local ordering = direction == "asc" and "ASC" or "DESC"
   local displayed_did = mode == "followers" and "did" or "subject_did"
-  local sql = "WITH ranked_follows AS (SELECT uri, did, cid, indexed_at::text AS indexed_at, record::text AS record, record::jsonb->>'subject' AS subject_did, (record::jsonb->>'createdAt')::timestamptz AS sort_at, ROW_NUMBER() OVER (PARTITION BY did, record::jsonb->>'subject' ORDER BY (record::jsonb->>'createdAt')::timestamptz ASC, uri ASC) AS relationship_rank FROM happyview_records WHERE " .. table.concat(filters, " AND ") .. "), representatives AS (SELECT uri, did, cid, indexed_at, record, sort_at, " .. displayed_did .. " AS actor_did FROM ranked_follows WHERE relationship_rank = 1), " ..
+  local sql = "WITH ranked_follows AS (SELECT uri, did, cid, indexed_at::text AS indexed_at, record::text AS record, record::jsonb->>'subject' AS subject_did, sorted.sort_at, ROW_NUMBER() OVER (PARTITION BY did, record::jsonb->>'subject' ORDER BY sorted.sort_at ASC, uri ASC) AS relationship_rank FROM happyview_records CROSS JOIN LATERAL (SELECT " .. follow_sort_key() .. " AS sort_at) sorted WHERE " .. table.concat(filters, " AND ") .. "), representatives AS (SELECT uri, did, cid, indexed_at, record, sort_at, " .. displayed_did .. " AS actor_did FROM ranked_follows WHERE relationship_rank = 1), " ..
     "total AS (SELECT COUNT(*) AS total_count FROM representatives), " ..
     "page AS (SELECT uri, did, cid, indexed_at, record, sort_at, actor_did FROM representatives" .. cursor_filter .. " ORDER BY sort_at " .. ordering .. ", uri " .. ordering .. " LIMIT $" .. #values .. ") " ..
     "SELECT page.uri, page.did, page.cid, page.indexed_at, page.record, page.actor_did, total.total_count, to_char(page.sort_at AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS.US\"Z\"') AS sort_timestamp FROM total LEFT JOIN page ON TRUE ORDER BY page.sort_at " .. ordering .. ", page.uri " .. ordering
