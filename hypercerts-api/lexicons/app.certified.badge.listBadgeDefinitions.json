@@ -1,0 +1,71 @@
+{
+  "lexicon": 1,
+  "id": "app.certified.badge.listBadgeDefinitions",
+  "defs": {
+    "main": {
+      "type": "query",
+      "description": "Lists indexed badge definitions with author-DID and exact open-string badgeType filters. Repeated unbracketed array keys accept up to 100 values each; values within each filter use OR and distinct filters use AND. Results sort by (createdAt, uri), default desc, with an opaque cursor bound to sortDirection. Keep other parameters unchanged between pages. Authentication is not required.",
+      "parameters": {
+        "type": "params",
+        "properties": {
+          "authors": {
+            "type": "array",
+            "maxLength": 100,
+            "description": "DIDs of repositories that published the badge definitions; OR within this filter.",
+            "items": { "type": "string", "format": "did" }
+          },
+          "badgeTypes": {
+            "type": "array",
+            "maxLength": 100,
+            "description": "Exact open-string badgeType values; OR within this filter.",
+            "items": { "type": "string", "maxLength": 100 }
+          },
+          "sortDirection": {
+            "type": "string",
+            "enum": ["asc", "desc"],
+            "default": "desc",
+            "description": "Sort direction for (createdAt, uri)."
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 25,
+            "description": "Maximum definitions in the page."
+          },
+          "cursor": {
+            "type": "string",
+            "description": "Opaque pagination cursor, bound to sortDirection."
+          }
+        }
+      },
+      "output": {
+        "encoding": "application/json",
+        "schema": { "type": "ref", "ref": "#output" }
+      },
+      "errors": [
+        {
+          "name": "InvalidRequest",
+          "description": "A filter value, page bound, cursor, repeated scalar, or query parameter is invalid."
+        }
+      ]
+    },
+    "output": {
+      "type": "object",
+      "required": ["badgeDefinitions"],
+      "properties": {
+        "badgeDefinitions": {
+          "type": "array",
+          "items": {
+            "type": "ref",
+            "ref": "app.certified.badge.getBadgeDefinition#badgeDefinitionView"
+          }
+        },
+        "cursor": {
+          "type": "string",
+          "description": "Opaque cursor for the next page; omitted when there is no next page."
+        }
+      }
+    }
+  }
+}

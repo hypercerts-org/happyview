@@ -1,0 +1,55 @@
+{
+  "lexicon": 1,
+  "id": "app.certified.badge.getBadgeDefinition",
+  "defs": {
+    "main": {
+      "type": "query",
+      "description": "Public lookup of one indexed badge definition by exact AT-URI and DID authority. The original record is preserved and only its publisher actor is hydrated. Authentication is not required.",
+      "parameters": {
+        "type": "params",
+        "required": ["uri"],
+        "properties": {
+          "uri": {
+            "type": "string",
+            "format": "at-uri",
+            "description": "Full AT-URI of the badge-definition record using a DID authority."
+          }
+        }
+      },
+      "output": {
+        "encoding": "application/json",
+        "schema": { "type": "ref", "ref": "#output" }
+      },
+      "errors": [
+        {
+          "name": "InvalidRequest",
+          "description": "The URI is invalid or is not a badge-definition record AT-URI with a DID authority."
+        },
+        {
+          "name": "RecordNotFound",
+          "description": "No indexed badge definition exists at this exact AT-URI."
+        }
+      ]
+    },
+    "output": {
+      "type": "object",
+      "required": ["badgeDefinition"],
+      "properties": {
+        "badgeDefinition": { "type": "ref", "ref": "#badgeDefinitionView" }
+      }
+    },
+    "badgeDefinitionView": {
+      "type": "object",
+      "description": "Full indexed badge-definition record view with hydrated publisher actor.",
+      "required": ["uri", "cid", "indexedAt", "did", "author", "record"],
+      "properties": {
+        "uri": { "type": "string", "format": "at-uri" },
+        "cid": { "type": "string", "format": "cid" },
+        "indexedAt": { "type": "string", "format": "datetime" },
+        "did": { "type": "string", "format": "did" },
+        "author": { "type": "ref", "ref": "org.hypercerts.api.defs#actorView" },
+        "record": { "type": "ref", "ref": "app.certified.badge.definition" }
+      }
+    }
+  }
+}

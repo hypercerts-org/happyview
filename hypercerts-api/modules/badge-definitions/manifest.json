@@ -1,0 +1,71 @@
+{
+  "assets": [
+    {
+      "id": "app.certified.defs",
+      "kind": "lexicon",
+      "packagePath": "lexicons/app/certified/defs.json",
+      "config": { "backfill": false }
+    },
+    {
+      "id": "app.certified.badge.definition",
+      "kind": "lexicon",
+      "packagePath": "lexicons/app/certified/badge/definition.json",
+      "config": { "backfill": true },
+      "dependsOn": ["app.certified.defs", "app.certified.signature.defs"]
+    },
+    {
+      "id": "app.certified.badge.getBadgeDefinition",
+      "kind": "lexicon",
+      "path": "../../lexicons/app.certified.badge.getBadgeDefinition.json",
+      "config": { "backfill": false, "target_collection": "app.certified.badge.definition" },
+      "dependsOn": [
+        "app.certified.badge.definition",
+        "app.certified.actor.profile",
+        "app.certified.actor.organization",
+        "org.hypercerts.api.defs"
+      ]
+    },
+    {
+      "id": "app.certified.badge.listBadgeDefinitions",
+      "kind": "lexicon",
+      "path": "../../lexicons/app.certified.badge.listBadgeDefinitions.json",
+      "config": { "backfill": false, "target_collection": "app.certified.badge.definition" },
+      "dependsOn": ["app.certified.badge.getBadgeDefinition"]
+    },
+    {
+      "id": "xrpc.query:app.certified.badge.getBadgeDefinition",
+      "kind": "script",
+      "path": "../../lua/endpoints/getBadgeDefinition.lua",
+      "sourcePath": "../../lua/src/getBadgeDefinition.lua",
+      "sharedSourcePaths": [
+        "../../lua/shared/query.lua",
+        "../../lua/shared/recordIdentifier.lua",
+        "../../lua/shared/recordView.lua",
+        "../../lua/shared/actorView.lua"
+      ],
+      "config": {
+        "script_type": "lua",
+        "description": "Badge definition API handler"
+      },
+      "dependsOn": ["app.certified.badge.getBadgeDefinition"]
+    },
+    {
+      "id": "xrpc.query:app.certified.badge.listBadgeDefinitions",
+      "kind": "script",
+      "path": "../../lua/endpoints/listBadgeDefinitions.lua",
+      "sourcePath": "../../lua/src/listBadgeDefinitions.lua",
+      "sharedSourcePaths": [
+        "../../lua/shared/query.lua",
+        "../../lua/shared/recordIdentifier.lua",
+        "../../lua/shared/listQuery.lua",
+        "../../lua/shared/recordView.lua",
+        "../../lua/shared/actorView.lua"
+      ],
+      "config": {
+        "script_type": "lua",
+        "description": "Badge definition API handler"
+      },
+      "dependsOn": ["app.certified.badge.listBadgeDefinitions"]
+    }
+  ]
+}
