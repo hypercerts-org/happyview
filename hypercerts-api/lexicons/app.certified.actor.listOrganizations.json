@@ -1,0 +1,67 @@
+{
+  "lexicon": 1,
+  "id": "app.certified.actor.listOrganizations",
+  "defs": {
+    "main": {
+      "type": "query",
+      "description": "Lists actors with indexed organization sidecars. Repeated unbracketed array values accept at most 100 entries; values within actors and organizationTypes use OR, while distinct filters use AND. Omitted visibility imposes no restriction, including public, unlisted, and unspecified values; supplied visibility is an exact string match. Results sort by (createdAt, uri), default desc, with a direction-bound opaque cursor. Keep other parameters unchanged between pages. Authentication is not required.",
+      "parameters": {
+        "type": "params",
+        "properties": {
+          "actors": {
+            "type": "array",
+            "maxLength": 100,
+            "description": "Actor DIDs whose organization sidecars are included; DIDs only, with OR within this filter.",
+            "items": { "type": "string", "format": "did" }
+          },
+          "organizationTypes": {
+            "type": "array",
+            "maxLength": 100,
+            "description": "Exact organizationType values; OR within this filter.",
+            "items": { "type": "string", "maxLength": 128 }
+          },
+          "visibility": {
+            "type": "string",
+            "description": "Exact match against the sidecar visibility value. Omission adds no visibility restriction; missing values do not match a supplied value."
+          },
+          "sortDirection": {
+            "type": "string",
+            "enum": ["asc", "desc"],
+            "description": "Sort direction for (createdAt, uri); default desc."
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "description": "Maximum actors in the page; default 25."
+          },
+          "cursor": {
+            "type": "string",
+            "description": "Opaque pagination cursor, bound to sortDirection."
+          }
+        }
+      },
+      "output": {
+        "encoding": "application/json",
+        "schema": { "type": "ref", "ref": "#output" }
+      },
+      "errors": [
+        { "name": "InvalidRequest", "description": "A filter value, page bound, cursor, repeated scalar, or query parameter is invalid." }
+      ]
+    },
+    "output": {
+      "type": "object",
+      "required": ["actors"],
+      "properties": {
+        "actors": {
+          "type": "array",
+          "items": { "type": "ref", "ref": "app.certified.actor.getOrganization#organizationActorView" }
+        },
+        "cursor": {
+          "type": "string",
+          "description": "Opaque cursor for the next page; omitted when there is no next page."
+        }
+      }
+    }
+  }
+}

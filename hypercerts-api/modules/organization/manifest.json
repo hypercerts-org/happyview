@@ -1,0 +1,92 @@
+{
+  "assets": [
+    {
+      "kind": "lexicon",
+      "id": "app.certified.actor.getOrganization",
+      "path": "../../lexicons/app.certified.actor.getOrganization.json",
+      "config": {
+        "backfill": false,
+        "target_collection": "app.certified.actor.organization"
+      },
+      "dependsOn": [
+        "app.certified.actor.organization",
+        "app.certified.actor.profile",
+        "org.hypercerts.api.defs"
+      ]
+    },
+    {
+      "kind": "lexicon",
+      "id": "app.certified.actor.listOrganizations",
+      "path": "../../lexicons/app.certified.actor.listOrganizations.json",
+      "config": {
+        "backfill": false,
+        "target_collection": "app.certified.actor.organization"
+      },
+      "dependsOn": [
+        "app.certified.actor.getOrganization"
+      ]
+    },
+    {
+      "kind": "lexicon",
+      "id": "app.certified.actor.searchOrganizations",
+      "path": "../../lexicons/app.certified.actor.searchOrganizations.json",
+      "config": {
+        "backfill": false,
+        "target_collection": "app.certified.actor.organization"
+      },
+      "dependsOn": [
+        "app.certified.actor.getOrganization"
+      ]
+    },
+    {
+      "kind": "script",
+      "id": "xrpc.query:app.certified.actor.getOrganization",
+      "path": "../../lua/endpoints/getOrganization.lua",
+      "sourcePath": "../../lua/src/getOrganization.lua",
+      "sharedSourcePaths": [
+        "../../lua/shared/organization.lua"
+      ],
+      "config": {
+        "script_type": "lua",
+        "description": "Certified organization lookup handler"
+      },
+      "dependsOn": [
+        "app.certified.actor.getOrganization"
+      ]
+    },
+    {
+      "kind": "script",
+      "id": "xrpc.query:app.certified.actor.listOrganizations",
+      "path": "../../lua/endpoints/listOrganizations.lua",
+      "sourcePath": "../../lua/src/listOrganizations.lua",
+      "sharedSourcePaths": [
+        "../../lua/shared/organization.lua",
+        "../../lua/shared/organizationList.lua"
+      ],
+      "config": {
+        "script_type": "lua",
+        "description": "Certified organization listing handler"
+      },
+      "dependsOn": [
+        "app.certified.actor.listOrganizations"
+      ]
+    },
+    {
+      "kind": "script",
+      "id": "xrpc.query:app.certified.actor.searchOrganizations",
+      "path": "../../lua/endpoints/searchOrganizations.lua",
+      "sourcePath": "../../lua/src/searchOrganizations.lua",
+      "sharedSourcePaths": [
+        "../../lua/shared/organization.lua",
+        "../../lua/shared/organizationList.lua"
+      ],
+      "config": {
+        "script_type": "lua",
+        "description": "Certified organization search handler"
+      },
+      "dependsOn": [
+        "app.certified.actor.searchOrganizations"
+      ]
+    }
+  ]
+}

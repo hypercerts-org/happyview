@@ -19,10 +19,16 @@ test('the full validation Lexicon closure resolves locally while only selected p
   assert.deepEqual(deployedPackageAssets.map(({ id }) => id).sort(), [
     'app.certified.actor.organization',
     'app.certified.actor.profile',
+    'app.certified.graph.entityFollow',
     'app.certified.graph.follow',
     'app.certified.location',
     'app.certified.signature.defs',
+    'org.hypercerts.claim.activity',
+    'org.hypercerts.claim.contributorInformation',
+    'org.hypercerts.collection',
     'org.hypercerts.defs',
+    'org.hypercerts.entity.feature',
+    'org.hypercerts.vocab.tag',
   ]);
   for (const asset of deployedPackageAssets) {
     const source = validationSources.get(asset.id);
@@ -63,6 +69,38 @@ test('location query result refs resolve to shared actor views and getLocation-o
   assert.equal(getLocation.defs.output.properties.location.ref, 'lex:app.certified.location.getLocation#locationView');
   assert.equal(listLocations.defs.output.properties.locations.items.ref, 'lex:app.certified.location.getLocation#locationView');
   assert.equal(lexicons.getDefOrThrow('app.certified.location.getLocation#locationView').type, 'object');
+});
+
+test('organization query Lexicons keep the shared defs unchanged and reuse the required nullable actor view', async () => {
+  const { lexicons, documents } = await validatePackageLexicons();
+  const byId = new Map(documents.map((document) => [document.id, document]));
+  const shared = byId.get('org.hypercerts.api.defs');
+  const getOrganization = byId.get('app.certified.actor.getOrganization');
+  const listOrganizations = byId.get('app.certified.actor.listOrganizations');
+  const searchOrganizations = byId.get('app.certified.actor.searchOrganizations');
+  assert.ok(shared && getOrganization && listOrganizations && searchOrganizations);
+  assert.equal(shared.defs.organizationActorView, undefined, 'avoid changing the installed shared defs Lexicon');
+
+  const actorView = lexicons.getDefOrThrow('app.certified.actor.getOrganization#organizationActorView');
+  assert.deepEqual(actorView.required, ['did', 'profile', 'organization']);
+  assert.deepEqual(actorView.nullable, ['profile']);
+  assert.equal(actorView.properties.profile.ref, 'lex:org.hypercerts.api.defs#profileView');
+  assert.equal(actorView.properties.organization.ref, 'lex:org.hypercerts.api.defs#organizationView');
+  assert.equal(getOrganization.defs.output.properties.actor.ref, 'lex:app.certified.actor.getOrganization#organizationActorView');
+  assert.deepEqual(getOrganization.defs.main.errors.map(({ name }) => name), ['InvalidRequest', 'RecordNotFound']);
+
+  const listParameters = listOrganizations.defs.main.parameters.properties;
+  const searchParameters = searchOrganizations.defs.main.parameters.properties;
+  assert.deepEqual(Object.keys(listParameters).sort(), ['actors', 'cursor', 'limit', 'organizationTypes', 'sortDirection', 'visibility']);
+  assert.deepEqual(Object.keys(searchParameters).sort(), ['actors', 'cursor', 'limit', 'organizationTypes', 'search', 'sortDirection', 'visibility']);
+  assert.deepEqual(searchOrganizations.defs.main.parameters.required, ['search']);
+  for (const query of [listOrganizations, searchOrganizations]) {
+    assert.equal(query.defs.main.parameters.properties.actors.maxLength, 100);
+    assert.equal(query.defs.main.parameters.properties.organizationTypes.maxLength, 100);
+    assert.equal(query.defs.output.properties.actors.items.ref, 'lex:app.certified.actor.getOrganization#organizationActorView');
+  }
+  assert.equal(lexicons.getDefOrThrow(listOrganizations.defs.output.properties.actors.items.ref).type, 'object');
+  assert.equal(lexicons.getDefOrThrow(searchOrganizations.defs.output.properties.actors.items.ref).type, 'object');
 });
 
 test('follow query Lexicons declare all required DID parameters', async () => {

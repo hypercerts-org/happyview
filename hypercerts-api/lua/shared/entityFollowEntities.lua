@@ -1,3 +1,5 @@
+local ENTITY_FOLLOW_ACTIVITY = "org.hypercerts.claim.activity"
+local ENTITY_FOLLOW_COLLECTION = "org.hypercerts.collection"
 local ENTITY_FOLLOW_FEATURE = "org.hypercerts.entity.feature"
 
 local function entity_follow_target_rows(collection, uris)
@@ -23,8 +25,8 @@ end
 
 local function entity_follow_resolve_entities(rows)
   local supported = {
-    [ACTIVITY] = { uris = {}, seen = {} },
-    [COLLECTION] = { uris = {}, seen = {} },
+    [ENTITY_FOLLOW_ACTIVITY] = { uris = {}, seen = {} },
+    [ENTITY_FOLLOW_COLLECTION] = { uris = {}, seen = {} },
     [ENTITY_FOLLOW_FEATURE] = { uris = {}, seen = {} },
   }
   local row_uris = {}
@@ -40,34 +42,34 @@ local function entity_follow_resolve_entities(rows)
 
   local views_by_uri = {}
   local activity_views = {}
-  for _, row in ipairs(entity_follow_target_rows(ACTIVITY, supported[ACTIVITY].uris)) do
-    local view = activity_view(row)
+  for _, row in ipairs(entity_follow_target_rows(ENTITY_FOLLOW_ACTIVITY, supported[ENTITY_FOLLOW_ACTIVITY].uris)) do
+    local view = activity_projection_view(row)
     views_by_uri[row.uri] = view
     activity_views[#activity_views + 1] = view
   end
-  hydrate_activity_views(activity_views)
+  activity_projection_hydrate_views(activity_views)
   for _, view in ipairs(activity_views) do
     view["$type"] = "org.hypercerts.claim.getActivity#activityView"
   end
 
   local collection_views = {}
-  for _, row in ipairs(entity_follow_target_rows(COLLECTION, supported[COLLECTION].uris)) do
-    local view = collection_view(row)
+  for _, row in ipairs(entity_follow_target_rows(ENTITY_FOLLOW_COLLECTION, supported[ENTITY_FOLLOW_COLLECTION].uris)) do
+    local view = collection_projection_view(row)
     views_by_uri[row.uri] = view
     collection_views[#collection_views + 1] = view
   end
-  collection_hydrate(collection_views)
+  collection_projection_hydrate(collection_views)
   for _, view in ipairs(collection_views) do
     view["$type"] = "org.hypercerts.collection.getCollection#collectionView"
   end
 
   local feature_views = {}
   for _, row in ipairs(entity_follow_target_rows(ENTITY_FOLLOW_FEATURE, supported[ENTITY_FOLLOW_FEATURE].uris)) do
-    local view = collection_items_feature_view(row)
+    local view = feature_projection_view(row)
     views_by_uri[row.uri] = view
     feature_views[#feature_views + 1] = view
   end
-  collection_items_hydrate_features(feature_views)
+  feature_projection_hydrate(feature_views)
 
   local entities = {}
   for index, row in ipairs(rows) do

@@ -1,0 +1,76 @@
+{
+  "assets": [
+    {
+      "kind": "lexicon",
+      "id": "org.hypercerts.claim.activity",
+      "packagePath": "lexicons/org/hypercerts/claim/activity.json",
+      "config": { "backfill": true },
+      "dependsOn": []
+    },
+    {
+      "kind": "lexicon",
+      "id": "org.hypercerts.claim.contributorInformation",
+      "packagePath": "lexicons/org/hypercerts/claim/contributorInformation.json",
+      "config": { "backfill": true },
+      "dependsOn": []
+    },
+    {
+      "kind": "lexicon",
+      "id": "org.hypercerts.claim.getActivity",
+      "path": "../../lexicons/org.hypercerts.claim.getActivity.json",
+      "config": {
+        "backfill": false,
+        "target_collection": "org.hypercerts.claim.activity"
+      },
+      "dependsOn": [
+        "org.hypercerts.claim.activity",
+        "org.hypercerts.claim.contributorInformation",
+        "org.hypercerts.api.defs"
+      ]
+    },
+    {
+      "kind": "script",
+      "id": "xrpc.query:org.hypercerts.claim.getActivity",
+      "path": "../../lua/endpoints/getActivity.lua",
+      "sourcePath": "../../lua/src/getActivity.lua",
+      "sharedSourcePaths": ["../../lua/shared/activityProjection.lua", "../../lua/shared/activity.lua"],
+      "config": {
+        "script_type": "lua",
+        "description": "Hypercerts activity lookup handler"
+      },
+      "dependsOn": ["org.hypercerts.claim.getActivity"]
+    },
+    {
+      "kind": "lexicon",
+      "id": "org.hypercerts.claim.listActivities",
+      "path": "../../lexicons/org.hypercerts.claim.listActivities.json",
+      "config": { "backfill": false, "target_collection": "org.hypercerts.claim.activity" },
+      "dependsOn": ["org.hypercerts.claim.getActivity"]
+    },
+    {
+      "kind": "lexicon",
+      "id": "org.hypercerts.claim.searchActivities",
+      "path": "../../lexicons/org.hypercerts.claim.searchActivities.json",
+      "config": { "backfill": false, "target_collection": "org.hypercerts.claim.activity" },
+      "dependsOn": ["org.hypercerts.claim.getActivity"]
+    },
+    {
+      "kind": "script",
+      "id": "xrpc.query:org.hypercerts.claim.listActivities",
+      "path": "../../lua/endpoints/listActivities.lua",
+      "sourcePath": "../../lua/src/listActivities.lua",
+      "sharedSourcePaths": ["../../lua/shared/activityProjection.lua", "../../lua/shared/activity.lua", "../../lua/shared/activityList.lua"],
+      "config": { "script_type": "lua", "description": "Hypercerts activity listing handler" },
+      "dependsOn": ["org.hypercerts.claim.listActivities"]
+    },
+    {
+      "kind": "script",
+      "id": "xrpc.query:org.hypercerts.claim.searchActivities",
+      "path": "../../lua/endpoints/searchActivities.lua",
+      "sourcePath": "../../lua/src/searchActivities.lua",
+      "sharedSourcePaths": ["../../lua/shared/activityProjection.lua", "../../lua/shared/activity.lua", "../../lua/shared/activityList.lua"],
+      "config": { "script_type": "lua", "description": "Hypercerts activity search handler" },
+      "dependsOn": ["org.hypercerts.claim.searchActivities"]
+    }
+  ]
+}

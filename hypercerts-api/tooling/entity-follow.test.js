@@ -629,3 +629,23 @@ test('entity-follow module installs its pinned record and query closure without 
     assert.equal(Object.hasOwn(document.defs.output.properties, 'totalCount'), false);
   }
 });
+
+test('listEntityFollowing names unknown query parameters in InvalidRequest diagnostics', () => {
+  const source = `
+local NULL_VALUE = {}
+json = { decode = function(value) if value == 'null' then return NULL_VALUE end return {} end }
+toarray = function(values) return values end
+params = { actor = '${actor}', bogus = '1' }
+local calls = 0
+db = {
+  backend = function() return 'postgres' end,
+  raw = function() calls = calls + 1; return {} end,
+}
+dofile('lua/endpoints/listEntityFollowing.lua')
+local ok, result = pcall(handle)
+assert(not ok)
+assert(tostring(result) == 'InvalidRequest: unknown query parameter: bogus', tostring(result))
+assert(calls == 0, 'unknown parameters must be rejected before database access')
+`;
+  runLua('listEntityFollowing', source);
+});

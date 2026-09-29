@@ -50,8 +50,8 @@
       "sharedSourcePaths": [
         "../../lua/shared/query.lua",
         "../../lua/shared/recordIdentifier.lua",
-        "../../lua/shared/listQuery.lua",
-        "../../lua/shared/entityFollow.lua"
+        "../../lua/shared/entityFollow.lua",
+        "../../lua/shared/entityFollowLookup.lua"
       ],
       "config": {
         "script_type": "lua",
@@ -68,7 +68,9 @@
         "../../lua/shared/query.lua",
         "../../lua/shared/recordIdentifier.lua",
         "../../lua/shared/listQuery.lua",
-        "../../lua/shared/entityFollow.lua"
+        "../../lua/shared/entityFollow.lua",
+        "../../lua/shared/entityFollowPagination.lua",
+        "../../lua/shared/entityFollowFollowers.lua"
       ],
       "config": {
         "script_type": "lua",
@@ -85,10 +87,11 @@
         "../../lua/shared/query.lua",
         "../../lua/shared/recordIdentifier.lua",
         "../../lua/shared/listQuery.lua",
-        "../../lua/shared/activity.lua",
-        "../../lua/shared/collection.lua",
-        "../../lua/shared/collectionItems.lua",
+        "../../lua/shared/activityProjection.lua",
+        "../../lua/shared/collectionProjection.lua",
+        "../../lua/shared/featureProjection.lua",
         "../../lua/shared/entityFollow.lua",
+        "../../lua/shared/entityFollowPagination.lua",
         "../../lua/shared/entityFollowEntities.lua"
       ],
       "config": {

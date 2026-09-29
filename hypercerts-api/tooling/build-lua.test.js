@@ -8,9 +8,12 @@ import { buildLuaBundles, checkLuaBundles } from './lua-bundles.js';
 const sources = [
   ['lua/shared/collection.lua', 'local function collection_view() return "collection" end\n'],
   ['lua/shared/collectionList.lua', 'local function collection_list_response() return collection_view() end\n'],
-  ['lua/shared/collectionItems.lua', 'local function collection_items_response() return activity_view() end\n'],
+  ['lua/shared/collectionItems.lua', 'local function collection_items_response() return activity_projection() end\n'],
   ['lua/shared/entityFollow.lua', 'local function entity_follow_common() return "entity follow" end\n'],
-  ['lua/shared/entityFollowEntities.lua', 'local function entity_follow_entities() return collection_items_response() end\n'],
+  ['lua/shared/entityFollowLookup.lua', 'local function entity_follow_lookup_shared() return "lookup" end\n'],
+  ['lua/shared/entityFollowPagination.lua', 'local function entity_follow_pagination_shared() return "pagination" end\n'],
+  ['lua/shared/entityFollowFollowers.lua', 'local function entity_follow_followers_shared() return "followers" end\n'],
+  ['lua/shared/entityFollowEntities.lua', 'local function entity_follow_entities() return activity_projection() .. collection_projection() .. feature_projection() end\n'],
   ['lua/src/listCollectionItems.lua', 'function handle() return collection_items_response() end\n'],
   ['lua/src/getCollection.lua', 'function handle() return collection_view() end\n'],
   ['lua/src/listCollections.lua', 'function handle() return collection_list_response(false) end\n'],
@@ -31,6 +34,9 @@ const sources = [
   ['lua/shared/organization.lua', 'local function organization_actor_view() return row_view() end\n'],
   ['lua/shared/organizationList.lua', 'local function organizations_response() return organization_actor_view() end\n'],
   ['lua/shared/activity.lua', 'local function activity_view() return "activity" end\n'],
+  ['lua/shared/activityProjection.lua', 'local function activity_projection() return "activity" end\n'],
+  ['lua/shared/collectionProjection.lua', 'local function collection_projection() return "collection" end\n'],
+  ['lua/shared/featureProjection.lua', 'local function feature_projection() return "feature" end\n'],
   ['lua/shared/activityList.lua', 'local function activity_list_response(search_enabled) return search_enabled end\n'],
   ['lua/src/getActivity.lua', 'function handle() return activity_view() end\n'],
   ['lua/src/listActivities.lua', 'function handle() return activity_list_response(false) end\n'],
@@ -69,15 +75,17 @@ async function withLuaRoot(run) {
 test('builds collection lookup, listing, and search handlers from their declared sources', async () => {
   await withLuaRoot(async (root) => {
     await buildLuaBundles(root);
+    const projection = 'local function collection_projection() return "collection" end';
     const common = 'local function collection_view() return "collection" end';
     assert.equal(
       await readFile(path.join(root, 'lua/endpoints/getCollection.lua'), 'utf8'),
-      [common, 'function handle() return collection_view() end'].join('\n\n') + '\n',
+      [projection, common, 'function handle() return collection_view() end'].join('\n\n') + '\n',
     );
     for (const [name, searchEnabled] of [['listCollections', false], ['searchCollections', true]]) {
       assert.equal(
         await readFile(path.join(root, `lua/endpoints/${name}.lua`), 'utf8'),
         [
+          projection,
           common,
           'local function collection_list_response() return collection_view() end',
           `function handle() return collection_list_response(${searchEnabled}) end`,
@@ -93,8 +101,11 @@ test('builds listCollectionItems with the shared activity-view implementation', 
     assert.equal(
       await readFile(path.join(root, 'lua/endpoints/listCollectionItems.lua'), 'utf8'),
       [
-        'local function activity_view() return "activity" end',
-        'local function collection_items_response() return activity_view() end',
+        'local function query_common() return "query" end',
+        'local function record_identifier_common() return "identifier" end',
+        'local function activity_projection() return "activity" end',
+        'local function feature_projection() return "feature" end',
+        'local function collection_items_response() return activity_projection() end',
         'function handle() return collection_items_response() end',
       ].join('\n\n') + '\n',
     );
@@ -121,30 +132,41 @@ test('builds a handler bundle from its shared and endpoint sources', async () =>
 test('builds entity-follow handlers in declared shared-source dependency order', async () => {
   await withLuaRoot(async (root) => {
     await buildLuaBundles(root);
-    const common = [
+    const base = [
       'local function query_common() return "query" end',
       'local function record_identifier_common() return "identifier" end',
-      'local function list_query_common() return "list query" end',
-      'local function entity_follow_common() return "entity follow" end',
     ];
-    for (const [name, handler] of [
-      ['getEntityFollow', 'function handle() return entity_follow_common() end'],
-      ['listEntityFollowers', 'function handle() return entity_follow_common() end'],
-    ]) {
-      assert.equal(
-        await readFile(path.join(root, `lua/endpoints/${name}.lua`), 'utf8'),
-        [...common, handler].join('\n\n') + '\n',
-      );
-    }
+    assert.equal(
+      await readFile(path.join(root, 'lua/endpoints/getEntityFollow.lua'), 'utf8'),
+      [
+        ...base,
+        'local function entity_follow_common() return "entity follow" end',
+        'local function entity_follow_lookup_shared() return "lookup" end',
+        'function handle() return entity_follow_common() end',
+      ].join('\n\n') + '\n',
+    );
+    assert.equal(
+      await readFile(path.join(root, 'lua/endpoints/listEntityFollowers.lua'), 'utf8'),
+      [
+        ...base,
+        'local function list_query_common() return "list query" end',
+        'local function entity_follow_common() return "entity follow" end',
+        'local function entity_follow_pagination_shared() return "pagination" end',
+        'local function entity_follow_followers_shared() return "followers" end',
+        'function handle() return entity_follow_common() end',
+      ].join('\n\n') + '\n',
+    );
     assert.equal(
       await readFile(path.join(root, 'lua/endpoints/listEntityFollowing.lua'), 'utf8'),
       [
-        ...common.slice(0, 3),
-        'local function activity_view() return "activity" end',
-        'local function collection_view() return "collection" end',
-        'local function collection_items_response() return activity_view() end',
-        common[3],
-        'local function entity_follow_entities() return collection_items_response() end',
+        ...base,
+        'local function list_query_common() return "list query" end',
+        'local function activity_projection() return "activity" end',
+        'local function collection_projection() return "collection" end',
+        'local function feature_projection() return "feature" end',
+        'local function entity_follow_common() return "entity follow" end',
+        'local function entity_follow_pagination_shared() return "pagination" end',
+        'local function entity_follow_entities() return activity_projection() .. collection_projection() .. feature_projection() end',
         'function handle() return entity_follow_entities() end',
       ].join('\n\n') + '\n',
     );
@@ -186,6 +208,7 @@ test('builds get, list, and search activity handlers from their declared sources
     assert.equal(
       await readFile(path.join(root, 'lua/endpoints/getActivity.lua'), 'utf8'),
       [
+        'local function activity_projection() return "activity" end',
         'local function activity_view() return "activity" end',
         'function handle() return activity_view() end',
       ].join('\n\n') + '\n',
@@ -194,6 +217,7 @@ test('builds get, list, and search activity handlers from their declared sources
       assert.equal(
         await readFile(path.join(root, `lua/endpoints/${name}.lua`), 'utf8'),
         [
+          'local function activity_projection() return "activity" end',
           'local function activity_view() return "activity" end',
           'local function activity_list_response(search_enabled) return search_enabled end',
           `function handle() return activity_list_response(${searchEnabled}) end`,

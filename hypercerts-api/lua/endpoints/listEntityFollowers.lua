@@ -79,8 +79,6 @@ local function cursor_encode(value)
 end
 
 local ENTITY_FOLLOW = "app.certified.graph.entityFollow"
-local ENTITY_FOLLOW_PROFILE = "app.certified.actor.profile"
-local ENTITY_FOLLOW_ORGANIZATION = "app.certified.actor.organization"
 local ENTITY_FOLLOW_NULL = json.decode("null")
 
 local function entity_follow_query(sql, values)
@@ -132,14 +130,6 @@ local function entity_follow_decode_cursor(token, direction)
   return value
 end
 
-local function entity_follow_lookup(actor, entity_uri)
-  local rows = entity_follow_query(
-    "SELECT uri, did, cid, indexed_at::text AS indexed_at, record::text AS record FROM happyview_records CROSS JOIN LATERAL (SELECT " .. entity_follow_sort_key() .. " AS sort_at) sorted WHERE collection = $1 AND did = $2 AND record::jsonb->'subject'->>'uri' = $3 ORDER BY sorted.sort_at ASC, uri ASC LIMIT 1",
-    { ENTITY_FOLLOW, actor, entity_uri })
-  if #rows == 0 then return ENTITY_FOLLOW_NULL end
-  return entity_follow_record_view(rows[1])
-end
-
 local function entity_follow_query_page(mode, identity, limit, cursor, direction)
   local filters, values = { "collection = $1" }, { ENTITY_FOLLOW, identity }
   if mode == "followers" then
@@ -180,6 +170,9 @@ local function entity_follow_query_page(mode, identity, limit, cursor, direction
   return rows, next_cursor
 end
 
+local ENTITY_FOLLOW_FOLLOWER_PROFILE = "app.certified.actor.profile"
+local ENTITY_FOLLOW_FOLLOWER_ORGANIZATION = "app.certified.actor.organization"
+
 local function entity_follow_load_actor_records(collection, dids)
   if #dids == 0 then return {} end
   local values, placeholders = { collection }, {}
@@ -204,8 +197,8 @@ local function entity_follow_hydrate_followers(followers)
       dids[#dids + 1] = follower.did
     end
   end
-  local profiles = entity_follow_load_actor_records(ENTITY_FOLLOW_PROFILE, dids)
-  local organizations = entity_follow_load_actor_records(ENTITY_FOLLOW_ORGANIZATION, dids)
+  local profiles = entity_follow_load_actor_records(ENTITY_FOLLOW_FOLLOWER_PROFILE, dids)
+  local organizations = entity_follow_load_actor_records(ENTITY_FOLLOW_FOLLOWER_ORGANIZATION, dids)
   for _, follower in ipairs(followers) do
     follower.profile = profiles[follower.did] and entity_follow_record_view(profiles[follower.did]) or ENTITY_FOLLOW_NULL
     follower.organization = organizations[follower.did] and entity_follow_record_view(organizations[follower.did]) or ENTITY_FOLLOW_NULL

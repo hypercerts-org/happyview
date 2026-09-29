@@ -150,7 +150,14 @@ test('actor-follow module installs the follow record schema, three queries, and 
   assert.equal(assets.find((asset) => asset.id === followCollection).config.backfill, true);
   assert.deepEqual(
     assets.filter(({ kind, id }) => kind === 'script' && id.startsWith('xrpc.query:app.certified.graph.')).map(({ id }) => id).sort(),
-    expected.filter((id) => id.startsWith('xrpc.query:app.certified.graph.')).sort(),
+    [
+      'xrpc.query:app.certified.graph.getEntityFollow',
+      'xrpc.query:app.certified.graph.getFollow',
+      'xrpc.query:app.certified.graph.listActorFollowers',
+      'xrpc.query:app.certified.graph.listActorFollowing',
+      'xrpc.query:app.certified.graph.listEntityFollowers',
+      'xrpc.query:app.certified.graph.listEntityFollowing',
+    ].sort(),
   );
 });
 

@@ -49,12 +49,18 @@
       "lua/shared/profileList.lua",
       "lua/shared/organization.lua",
       "lua/shared/organizationList.lua",
+      "lua/shared/activityProjection.lua",
       "lua/shared/activity.lua",
       "lua/shared/activityList.lua",
+      "lua/shared/collectionProjection.lua",
       "lua/shared/collection.lua",
       "lua/shared/collectionList.lua",
+      "lua/shared/featureProjection.lua",
       "lua/shared/collectionItems.lua",
       "lua/shared/entityFollow.lua",
+      "lua/shared/entityFollowLookup.lua",
+      "lua/shared/entityFollowPagination.lua",
+      "lua/shared/entityFollowFollowers.lua",
       "lua/shared/entityFollowEntities.lua"
     ],
     "endpointSources": [

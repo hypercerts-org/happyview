@@ -1,0 +1,100 @@
+{
+  "assets": [
+    {
+      "kind": "lexicon",
+      "id": "org.hypercerts.collection",
+      "packagePath": "lexicons/org/hypercerts/collection.json",
+      "config": { "backfill": true },
+      "dependsOn": ["org.hypercerts.defs", "app.certified.signature.defs"]
+    },
+    {
+      "kind": "lexicon",
+      "id": "org.hypercerts.entity.feature",
+      "packagePath": "lexicons/org/hypercerts/entity/feature.json",
+      "config": { "backfill": true },
+      "dependsOn": ["org.hypercerts.defs", "app.certified.signature.defs"]
+    },
+    {
+      "kind": "lexicon",
+      "id": "org.hypercerts.vocab.tag",
+      "packagePath": "lexicons/org/hypercerts/vocab/tag.json",
+      "config": { "backfill": true },
+      "dependsOn": ["org.hypercerts.defs", "app.certified.signature.defs"]
+    },
+    {
+      "kind": "lexicon",
+      "id": "org.hypercerts.collection.getCollection",
+      "path": "../../lexicons/org.hypercerts.collection.getCollection.json",
+      "config": { "backfill": false, "target_collection": "org.hypercerts.collection" },
+      "dependsOn": [
+        "org.hypercerts.collection",
+        "org.hypercerts.api.defs",
+        "app.certified.actor.profile",
+        "app.certified.actor.organization",
+        "app.certified.location",
+        "org.hypercerts.vocab.tag"
+      ]
+    },
+    {
+      "kind": "script",
+      "id": "xrpc.query:org.hypercerts.collection.getCollection",
+      "path": "../../lua/endpoints/getCollection.lua",
+      "sourcePath": "../../lua/src/getCollection.lua",
+      "sharedSourcePaths": ["../../lua/shared/collectionProjection.lua", "../../lua/shared/collection.lua"],
+      "config": { "script_type": "lua", "description": "Hypercerts collection lookup handler" },
+      "dependsOn": ["org.hypercerts.collection.getCollection"]
+    },
+    {
+      "kind": "lexicon",
+      "id": "org.hypercerts.collection.listCollections",
+      "path": "../../lexicons/org.hypercerts.collection.listCollections.json",
+      "config": { "backfill": false, "target_collection": "org.hypercerts.collection" },
+      "dependsOn": ["org.hypercerts.collection.getCollection"]
+    },
+    {
+      "kind": "script",
+      "id": "xrpc.query:org.hypercerts.collection.listCollections",
+      "path": "../../lua/endpoints/listCollections.lua",
+      "sourcePath": "../../lua/src/listCollections.lua",
+      "sharedSourcePaths": ["../../lua/shared/collectionProjection.lua", "../../lua/shared/collection.lua", "../../lua/shared/collectionList.lua"],
+      "config": { "script_type": "lua", "description": "Hypercerts collection listing handler" },
+      "dependsOn": ["org.hypercerts.collection.listCollections"]
+    },
+    {
+      "kind": "lexicon",
+      "id": "org.hypercerts.collection.searchCollections",
+      "path": "../../lexicons/org.hypercerts.collection.searchCollections.json",
+      "config": { "backfill": false, "target_collection": "org.hypercerts.collection" },
+      "dependsOn": ["org.hypercerts.collection.getCollection"]
+    },
+    {
+      "kind": "script",
+      "id": "xrpc.query:org.hypercerts.collection.searchCollections",
+      "path": "../../lua/endpoints/searchCollections.lua",
+      "sourcePath": "../../lua/src/searchCollections.lua",
+      "sharedSourcePaths": ["../../lua/shared/collectionProjection.lua", "../../lua/shared/collection.lua", "../../lua/shared/collectionList.lua"],
+      "config": { "script_type": "lua", "description": "Hypercerts collection search handler" },
+      "dependsOn": ["org.hypercerts.collection.searchCollections"]
+    },
+    {
+      "kind": "lexicon",
+      "id": "org.hypercerts.collection.listCollectionItems",
+      "path": "../../lexicons/org.hypercerts.collection.listCollectionItems.json",
+      "config": { "backfill": false, "target_collection": "org.hypercerts.collection" },
+      "dependsOn": [
+        "org.hypercerts.collection.getCollection",
+        "org.hypercerts.entity.feature",
+        "org.hypercerts.claim.getActivity"
+      ]
+    },
+    {
+      "kind": "script",
+      "id": "xrpc.query:org.hypercerts.collection.listCollectionItems",
+      "path": "../../lua/endpoints/listCollectionItems.lua",
+      "sourcePath": "../../lua/src/listCollectionItems.lua",
+      "sharedSourcePaths": ["../../lua/shared/query.lua", "../../lua/shared/recordIdentifier.lua", "../../lua/shared/activityProjection.lua", "../../lua/shared/featureProjection.lua", "../../lua/shared/collectionItems.lua"],
+      "config": { "script_type": "lua", "description": "Hypercerts collection item listing handler" },
+      "dependsOn": ["org.hypercerts.collection.listCollectionItems"]
+    }
+  ]
+}
