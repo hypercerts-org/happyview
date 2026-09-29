@@ -2,10 +2,23 @@ import { readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
 const bundles = [
+  { shared: ['collection'], endpoints: ['getCollection'] },
+  { shared: ['collection', 'collectionList'], endpoints: ['listCollections', 'searchCollections'] },
+  { shared: ['activity', 'collectionItems'], endpoints: ['listCollectionItems'] },
+
   { shared: ['query', 'recordIdentifier', 'recordView', 'actorView', 'location'], endpoints: ['getLocation'] },
+
+  { shared: ['activity'], endpoints: ['getActivity'] },
+  { shared: ['activity', 'activityList'], endpoints: ['listActivities', 'searchActivities'] },
   { shared: ['query', 'recordIdentifier', 'listQuery', 'recordView', 'actorView', 'location'], endpoints: ['listLocations'] },
   { shared: ['query', 'recordView', 'actorFollow', 'actorFollowLookup'], endpoints: ['getFollow'] },
   { shared: ['query', 'recordIdentifier', 'listQuery', 'recordView', 'actorView', 'actorFollow', 'actorFollowList'], endpoints: ['listActorFollowers', 'listActorFollowing'] },
+  { shared: ['query', 'recordIdentifier', 'listQuery', 'entityFollow'], endpoints: ['getEntityFollow', 'listEntityFollowers'] },
+  { shared: ['query', 'recordIdentifier', 'listQuery', 'activity', 'collection', 'collectionItems', 'entityFollow', 'entityFollowEntities'], endpoints: ['listEntityFollowing'] },
+  { shared: ['profile', 'profileLookup'], endpoints: ['getProfile'] },
+  { shared: ['profile', 'profileList'], endpoints: ['listProfiles', 'searchProfiles'] },
+  { shared: ['organization'], endpoints: ['getOrganization'] },
+  { shared: ['organization', 'organizationList'], endpoints: ['listOrganizations', 'searchOrganizations'] },
 ];
 
 async function renderBundles(root) {

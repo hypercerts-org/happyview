@@ -1,0 +1,101 @@
+{
+  "assets": [
+    {
+      "kind": "lexicon",
+      "id": "app.certified.graph.entityFollow",
+      "packagePath": "lexicons/app/certified/graph/entityFollow.json",
+      "config": { "backfill": true },
+      "dependsOn": ["app.certified.signature.defs"]
+    },
+    {
+      "kind": "lexicon",
+      "id": "app.certified.graph.getEntityFollow",
+      "path": "../../lexicons/app.certified.graph.getEntityFollow.json",
+      "config": {
+        "backfill": false,
+        "target_collection": "app.certified.graph.entityFollow"
+      },
+      "dependsOn": ["app.certified.graph.entityFollow", "org.hypercerts.api.defs"]
+    },
+    {
+      "kind": "lexicon",
+      "id": "app.certified.graph.listEntityFollowers",
+      "path": "../../lexicons/app.certified.graph.listEntityFollowers.json",
+      "config": {
+        "backfill": false,
+        "target_collection": "app.certified.graph.entityFollow"
+      },
+      "dependsOn": ["app.certified.graph.getEntityFollow"]
+    },
+    {
+      "kind": "lexicon",
+      "id": "app.certified.graph.listEntityFollowing",
+      "path": "../../lexicons/app.certified.graph.listEntityFollowing.json",
+      "config": {
+        "backfill": false,
+        "target_collection": "app.certified.graph.entityFollow"
+      },
+      "dependsOn": [
+        "app.certified.graph.getEntityFollow",
+        "org.hypercerts.claim.getActivity",
+        "org.hypercerts.collection.getCollection",
+        "org.hypercerts.collection.listCollectionItems"
+      ]
+    },
+    {
+      "kind": "script",
+      "id": "xrpc.query:app.certified.graph.getEntityFollow",
+      "path": "../../lua/endpoints/getEntityFollow.lua",
+      "sourcePath": "../../lua/src/getEntityFollow.lua",
+      "sharedSourcePaths": [
+        "../../lua/shared/query.lua",
+        "../../lua/shared/recordIdentifier.lua",
+        "../../lua/shared/listQuery.lua",
+        "../../lua/shared/entityFollow.lua"
+      ],
+      "config": {
+        "script_type": "lua",
+        "description": "Entity follow API handler"
+      },
+      "dependsOn": ["app.certified.graph.getEntityFollow"]
+    },
+    {
+      "kind": "script",
+      "id": "xrpc.query:app.certified.graph.listEntityFollowers",
+      "path": "../../lua/endpoints/listEntityFollowers.lua",
+      "sourcePath": "../../lua/src/listEntityFollowers.lua",
+      "sharedSourcePaths": [
+        "../../lua/shared/query.lua",
+        "../../lua/shared/recordIdentifier.lua",
+        "../../lua/shared/listQuery.lua",
+        "../../lua/shared/entityFollow.lua"
+      ],
+      "config": {
+        "script_type": "lua",
+        "description": "Entity follow API handler"
+      },
+      "dependsOn": ["app.certified.graph.listEntityFollowers"]
+    },
+    {
+      "kind": "script",
+      "id": "xrpc.query:app.certified.graph.listEntityFollowing",
+      "path": "../../lua/endpoints/listEntityFollowing.lua",
+      "sourcePath": "../../lua/src/listEntityFollowing.lua",
+      "sharedSourcePaths": [
+        "../../lua/shared/query.lua",
+        "../../lua/shared/recordIdentifier.lua",
+        "../../lua/shared/listQuery.lua",
+        "../../lua/shared/activity.lua",
+        "../../lua/shared/collection.lua",
+        "../../lua/shared/collectionItems.lua",
+        "../../lua/shared/entityFollow.lua",
+        "../../lua/shared/entityFollowEntities.lua"
+      ],
+      "config": {
+        "script_type": "lua",
+        "description": "Entity follow API handler"
+      },
+      "dependsOn": ["app.certified.graph.listEntityFollowing"]
+    }
+  ]
+}
