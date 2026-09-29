@@ -25,6 +25,7 @@ test('the full validation Lexicon closure resolves locally while only selected p
     'org.hypercerts.claim.activity',
     'org.hypercerts.claim.contributorInformation',
     'org.hypercerts.collection',
+    'org.hypercerts.context.attachment',
     'org.hypercerts.defs',
     'org.hypercerts.entity.feature',
     'org.hypercerts.vocab.tag',

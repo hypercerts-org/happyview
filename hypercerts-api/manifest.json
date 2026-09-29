@@ -1,9 +1,9 @@
 {
-  "name": "hypercerts-location-actor-follow-profile-organization-activity-collection-api",
+  "name": "hypercerts-location-actor-follow-profile-organization-activity-collection-context-attachments-api",
   "collection": "app.certified.location",
   "targetHappyViewRevision": "a2f347e605d7cd9c11669b320e43c10dbfe982e3",
   "runtimeCompatibility": "compatible-at-target-revision",
-  "status": "handlers-implemented; location-and-actor-follow-runtime-validated-at-target-revision; organization-activity-and-collection-runtime-validation-pending",
+  "status": "handlers-implemented; location-and-actor-follow-runtime-validated-at-target-revision; profile-organization-activity-collection-and-context-attachment-runtime-validation-pending",
   "handlerStatus": {
     "getLocation": "implemented",
     "listLocations": "implemented",
@@ -23,12 +23,14 @@
     "getCollection": "implemented",
     "listCollections": "implemented",
     "searchCollections": "implemented",
-    "listCollectionItems": "implemented"
+    "listCollectionItems": "implemented",
+    "getAttachment": "implemented",
+    "listAttachments": "implemented"
   },
   "authentication": {
     "decision": "public",
     "unresolved": false,
-    "note": "The location, actor-follow, actor-profile, organization, activity, and collection query endpoints expose public record reads and require no caller authentication."
+    "note": "The location, actor-follow, actor-profile, organization, activity, collection, and context attachment query endpoints expose public record reads and require no caller authentication."
   },
   "luaBuild": {
     "command": "pnpm build:lua",
@@ -49,6 +51,8 @@
       "lua/shared/organizationList.lua",
       "lua/shared/activity.lua",
       "lua/shared/activityList.lua",
+      "lua/shared/attachment.lua",
+      "lua/shared/attachmentList.lua",
       "lua/shared/collection.lua",
       "lua/shared/collectionList.lua",
       "lua/shared/collectionItems.lua"
@@ -72,7 +76,9 @@
       "lua/src/searchProfiles.lua",
       "lua/src/getOrganization.lua",
       "lua/src/listOrganizations.lua",
-      "lua/src/searchOrganizations.lua"
+      "lua/src/searchOrganizations.lua",
+      "lua/src/getAttachment.lua",
+      "lua/src/listAttachments.lua"
     ],
     "installedHandlers": "lua/endpoints/"
   },
@@ -168,6 +174,18 @@
     {
       "id": "org.hypercerts.collection.listCollectionItems",
       "path": "lexicons/org.hypercerts.collection.listCollectionItems.json"
+    },
+    {
+      "id": "org.hypercerts.context.getAttachment",
+      "path": "lexicons/org.hypercerts.context.getAttachment.json"
+    },
+    {
+      "id": "org.hypercerts.context.listAttachments",
+      "path": "lexicons/org.hypercerts.context.listAttachments.json"
+    },
+    {
+      "id": "org.hypercerts.context.attachment",
+      "packagePath": "lexicons/org/hypercerts/context/attachment.json"
     },
     {
       "id": "app.certified.actor.organization",
@@ -320,6 +338,7 @@
     "modules/profile/manifest.json",
     "modules/organization/manifest.json",
     "modules/activity/manifest.json",
-    "modules/collection/manifest.json"
+    "modules/collection/manifest.json",
+    "modules/context-attachments/manifest.json"
   ]
 }
