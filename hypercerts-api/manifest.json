@@ -10,6 +10,7 @@
     "getFollow": "implemented",
     "listActorFollowers": "implemented",
     "listActorFollowing": "implemented",
+    "listRecentFollows": "implemented",
     "getProfile": "implemented",
     "listProfiles": "implemented",
     "searchProfiles": "implemented",
@@ -44,6 +45,7 @@
       "lua/shared/actorFollow.lua",
       "lua/shared/actorFollowLookup.lua",
       "lua/shared/actorFollowList.lua",
+      "lua/shared/recentFollows.lua",
       "lua/shared/profile.lua",
       "lua/shared/profileLookup.lua",
       "lua/shared/profileList.lua",
@@ -76,6 +78,7 @@
       "lua/src/getFollow.lua",
       "lua/src/listActorFollowers.lua",
       "lua/src/listActorFollowing.lua",
+      "lua/src/listRecentFollows.lua",
       "lua/src/getEntityFollow.lua",
       "lua/src/listEntityFollowers.lua",
       "lua/src/listEntityFollowing.lua",
@@ -128,6 +131,10 @@
     {
       "id": "app.certified.graph.listActorFollowing",
       "path": "lexicons/app.certified.graph.listActorFollowing.json"
+    },
+    {
+      "id": "app.certified.graph.listRecentFollows",
+      "path": "lexicons/app.certified.graph.listRecentFollows.json"
     },
     {
       "id": "app.certified.location.getLocation",
@@ -345,6 +352,7 @@
   "modules": [
     "modules/location/manifest.json",
     "modules/actor-follow/manifest.json",
+    "modules/recent-follows/manifest.json",
     "modules/profile/manifest.json",
     "modules/organization/manifest.json",
     "modules/activity/manifest.json",

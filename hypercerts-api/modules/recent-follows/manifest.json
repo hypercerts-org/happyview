@@ -1,0 +1,29 @@
+{
+  "assets": [
+    {
+      "kind": "lexicon",
+      "id": "app.certified.graph.listRecentFollows",
+      "path": "../../lexicons/app.certified.graph.listRecentFollows.json",
+      "config": { "backfill": false },
+      "dependsOn": [
+        "app.certified.graph.follow",
+        "app.certified.graph.entityFollow"
+      ]
+    },
+    {
+      "kind": "script",
+      "id": "xrpc.query:app.certified.graph.listRecentFollows",
+      "path": "../../lua/endpoints/listRecentFollows.lua",
+      "sourcePath": "../../lua/src/listRecentFollows.lua",
+      "sharedSourcePaths": [
+        "../../lua/shared/query.lua",
+        "../../lua/shared/recentFollows.lua"
+      ],
+      "config": {
+        "script_type": "lua",
+        "description": "Beta recent account- and entity-follow query handler"
+      },
+      "dependsOn": ["app.certified.graph.listRecentFollows"]
+    }
+  ]
+}

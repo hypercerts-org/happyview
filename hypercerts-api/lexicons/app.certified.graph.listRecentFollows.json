@@ -1,0 +1,72 @@
+{
+  "lexicon": 1,
+  "id": "app.certified.graph.listRecentFollows",
+  "defs": {
+    "main": {
+      "type": "query",
+      "description": "Beta query for raw account- and entity-follow records published by anyone, ordered by descending (createdAt, uri). Duplicate records are preserved and before is an exclusive upper bound on publisher-declared createdAt; these behaviors are provisional pending consumer confirmation. This is a recent-activity feed, not a lossless ingestion or backfill API; late-indexed records and concurrent changes may be missed across pages. Authentication is not required.",
+      "parameters": {
+        "type": "params",
+        "properties": {
+          "before": {
+            "type": "string",
+            "format": "datetime",
+            "description": "Exclusive upper bound on the follow record's publisher-declared createdAt, not indexedAt; omit to start with the newest indexed records. Keep unchanged across cursor pages."
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "description": "Maximum follow records per page; default 25."
+          },
+          "cursor": {
+            "type": "string",
+            "description": "Opaque cursor for the next page; keep before unchanged. Pagination has no snapshot guarantee."
+          }
+        }
+      },
+      "output": {
+        "encoding": "application/json",
+        "schema": { "type": "ref", "ref": "#output" }
+      },
+      "errors": [
+        {
+          "name": "InvalidRequest",
+          "description": "The before datetime, limit, cursor, or query parameter is invalid; use a valid datetime, limit of 1–100, or a cursor from this query."
+        }
+      ]
+    },
+    "recentFollowView": {
+      "type": "object",
+      "description": "Raw indexed account- or entity-follow record with its publishing repository identity. The unchanged record's $type distinguishes the follow collection.",
+      "required": ["uri", "cid", "indexedAt", "did", "record"],
+      "nullable": ["indexedAt"],
+      "properties": {
+        "uri": { "type": "string", "format": "at-uri", "description": "AT-URI of this follow record." },
+        "cid": { "type": "string", "format": "cid", "description": "CID of the indexed follow record version." },
+        "indexedAt": { "type": "string", "format": "datetime", "description": "Time this follow record was indexed, not the ordering field." },
+        "did": { "type": "string", "format": "did", "description": "DID of the repository that published this follow record." },
+        "record": {
+          "type": "union",
+          "refs": ["app.certified.graph.follow", "app.certified.graph.entityFollow"],
+          "description": "Unmodified account- or entity-follow record; its $type identifies the collection."
+        }
+      }
+    },
+    "output": {
+      "type": "object",
+      "required": ["follows"],
+      "properties": {
+        "follows": {
+          "type": "array",
+          "items": { "type": "ref", "ref": "#recentFollowView" },
+          "description": "Raw follow records from both collections, sorted by createdAt descending then URI descending, including duplicates."
+        },
+        "cursor": {
+          "type": "string",
+          "description": "Opaque cursor for the next page; omitted when no further page exists."
+        }
+      }
+    }
+  }
+}
