@@ -2,7 +2,12 @@ import { readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
 const bundles = [
+  { shared: ['collection'], endpoints: ['getCollection'] },
+  { shared: ['collection', 'collectionList'], endpoints: ['listCollections', 'searchCollections'] },
+  { shared: ['activity', 'collectionItems'], endpoints: ['listCollectionItems'] },
+
   { shared: ['query', 'recordIdentifier', 'recordView', 'actorView', 'location'], endpoints: ['getLocation'] },
+
   { shared: ['activity'], endpoints: ['getActivity'] },
   { shared: ['activity', 'activityList'], endpoints: ['listActivities', 'searchActivities'] },
   { shared: ['query', 'recordIdentifier', 'listQuery', 'recordView', 'actorView', 'location'], endpoints: ['listLocations'] },

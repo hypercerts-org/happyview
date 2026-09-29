@@ -1,0 +1,34 @@
+{
+  "lexicon": 1,
+  "id": "org.hypercerts.collection.listCollections",
+  "defs": {
+    "main": {
+      "type": "query",
+      "description": "Lists indexed collections. Array inputs use repeated unbracketed keys and are limited to 100 values per parameter. All distinct filters combine with AND. Values within authors, types, uris, and itemUris use OR; tagUris is the exception and requires every requested URI to occur in the collection's tags. itemUris and tagUris compare reference URIs only, without CID or target-body lookup. Duplicate inputs are removed; URI input order is not preserved. Results sort by (createdAt, uri), default desc, with an opaque direction-bound cursor. Authentication is not required.",
+      "parameters": {
+        "type": "params",
+        "properties": {
+          "authors": { "type": "array", "maxLength": 100, "description": "Repository-owner DIDs; OR within this filter.", "items": { "type": "string", "format": "did" } },
+          "authorType": { "type": "string", "enum": ["person", "organization"], "description": "organization requires an author organization sidecar; person matches profile actors without that sidecar." },
+          "types": { "type": "array", "maxLength": 100, "description": "Exact open-string collection types; OR within this filter.", "items": { "type": "string", "maxLength": 64 } },
+          "uris": { "type": "array", "maxLength": 100, "description": "Exact collection record AT-URIs for bounded batch hydration; OR within this filter.", "items": { "type": "string", "format": "at-uri" } },
+          "itemUris": { "type": "array", "maxLength": 100, "description": "Returns collections where any embedded items[].itemIdentifier.uri matches a supplied AT-URI; URI-only matching, without CID comparison or item hydration.", "items": { "type": "string", "format": "at-uri" } },
+          "tagUris": { "type": "array", "maxLength": 100, "description": "Conjunctive tag filter: every supplied vocabulary-tag AT-URI must occur in record.tags. Compares URI only, without CID comparison or tag-body inspection.", "items": { "type": "string", "format": "at-uri" } },
+          "sortDirection": { "type": "string", "enum": ["asc", "desc"], "description": "Sort direction for (createdAt, uri); default desc." },
+          "limit": { "type": "integer", "minimum": 1, "maximum": 100, "description": "Maximum collections in the page; default 25." },
+          "cursor": { "type": "string", "description": "Opaque pagination cursor, bound to sortDirection." }
+        }
+      },
+      "output": { "encoding": "application/json", "schema": { "type": "ref", "ref": "#output" } },
+      "errors": [{ "name": "InvalidRequest", "description": "A filter value, authorType, page bound, cursor, repeated scalar, or query parameter is invalid." }]
+    },
+    "output": {
+      "type": "object",
+      "required": ["collections"],
+      "properties": {
+        "collections": { "type": "array", "items": { "type": "ref", "ref": "org.hypercerts.collection.getCollection#collectionView" } },
+        "cursor": { "type": "string", "description": "Opaque cursor for the next page; omitted when there is no next page." }
+      }
+    }
+  }
+}

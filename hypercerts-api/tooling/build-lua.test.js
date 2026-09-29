@@ -6,7 +6,15 @@ import path from 'node:path';
 import { buildLuaBundles, checkLuaBundles } from './lua-bundles.js';
 
 const sources = [
+  ['lua/shared/collection.lua', 'local function collection_view() return "collection" end\n'],
+  ['lua/shared/collectionList.lua', 'local function collection_list_response() return collection_view() end\n'],
+  ['lua/shared/collectionItems.lua', 'local function collection_items_response() return activity_view() end\n'],
+  ['lua/src/listCollectionItems.lua', 'function handle() return collection_items_response() end\n'],
+  ['lua/src/getCollection.lua', 'function handle() return collection_view() end\n'],
+  ['lua/src/listCollections.lua', 'function handle() return collection_list_response(false) end\n'],
+  ['lua/src/searchCollections.lua', 'function handle() return collection_list_response(true) end\n'],
   ['lua/shared/query.lua', 'local function query_common() return "query" end\n'],
+
   ['lua/shared/recordIdentifier.lua', 'local function record_identifier_common() return "identifier" end\n'],
   ['lua/shared/listQuery.lua', 'local function list_query_common() return "list query" end\n'],
   ['lua/shared/recordView.lua', 'local function record_view_common() return "record" end\n'],
@@ -53,6 +61,41 @@ async function withLuaRoot(run) {
     await rm(root, { recursive: true, force: true });
   }
 }
+
+test('builds collection lookup, listing, and search handlers from their declared sources', async () => {
+  await withLuaRoot(async (root) => {
+    await buildLuaBundles(root);
+    const common = 'local function collection_view() return "collection" end';
+    assert.equal(
+      await readFile(path.join(root, 'lua/endpoints/getCollection.lua'), 'utf8'),
+      [common, 'function handle() return collection_view() end'].join('\n\n') + '\n',
+    );
+    for (const [name, searchEnabled] of [['listCollections', false], ['searchCollections', true]]) {
+      assert.equal(
+        await readFile(path.join(root, `lua/endpoints/${name}.lua`), 'utf8'),
+        [
+          common,
+          'local function collection_list_response() return collection_view() end',
+          `function handle() return collection_list_response(${searchEnabled}) end`,
+        ].join('\n\n') + '\n',
+      );
+    }
+  });
+});
+
+test('builds listCollectionItems with the shared activity-view implementation', async () => {
+  await withLuaRoot(async (root) => {
+    await buildLuaBundles(root);
+    assert.equal(
+      await readFile(path.join(root, 'lua/endpoints/listCollectionItems.lua'), 'utf8'),
+      [
+        'local function activity_view() return "activity" end',
+        'local function collection_items_response() return activity_view() end',
+        'function handle() return collection_items_response() end',
+      ].join('\n\n') + '\n',
+    );
+  });
+});
 
 test('builds a handler bundle from its shared and endpoint sources', async () => {
   await withLuaRoot(async (root) => {
@@ -138,6 +181,10 @@ test('builds get, list, and search activity handlers from their declared sources
 test('checks generated bundles without rewriting stale outputs', async () => {
   await withLuaRoot(async (root) => {
     const expectedStale = [
+      'lua/endpoints/getCollection.lua',
+      'lua/endpoints/listCollections.lua',
+      'lua/endpoints/searchCollections.lua',
+      'lua/endpoints/listCollectionItems.lua',
       'lua/endpoints/getLocation.lua',
       'lua/endpoints/getActivity.lua',
       'lua/endpoints/listActivities.lua',
@@ -168,6 +215,10 @@ test('checks generated bundles without rewriting stale outputs', async () => {
 test('reports missing generated bundles and accepts fresh bundles', async () => {
   await withLuaRoot(async (root) => {
     const expected = [
+      'lua/endpoints/getCollection.lua',
+      'lua/endpoints/listCollections.lua',
+      'lua/endpoints/searchCollections.lua',
+      'lua/endpoints/listCollectionItems.lua',
       'lua/endpoints/getLocation.lua',
       'lua/endpoints/getActivity.lua',
       'lua/endpoints/listActivities.lua',

@@ -24,7 +24,10 @@ test('the full validation Lexicon closure resolves locally while only selected p
     'app.certified.signature.defs',
     'org.hypercerts.claim.activity',
     'org.hypercerts.claim.contributorInformation',
+    'org.hypercerts.collection',
     'org.hypercerts.defs',
+    'org.hypercerts.entity.feature',
+    'org.hypercerts.vocab.tag',
   ]);
   for (const asset of deployedPackageAssets) {
     const source = validationSources.get(asset.id);
