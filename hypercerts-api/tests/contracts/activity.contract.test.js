@@ -1,6 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { activityContributorProfile, activityRecord, activityAuthorProfile, staleOnlyActivityRecord } from '../fixtures/activities.js';
+import {
+  activityContributorProfile,
+  activityRecord,
+  activityAuthorProfile,
+  organizationOnlyActivityRecord,
+  profilelessActivityRecord,
+  staleOnlyActivityRecord,
+} from '../fixtures/activities.js';
 import { contractUrl, requireContractTarget } from './helpers.js';
 
 const baseUrl = requireContractTarget();
@@ -61,7 +68,7 @@ test('getActivity preserves its source record and hydrates contributor versions 
 test('listActivities filters by contributor DID only when the exact referenced version is available', async () => {
   const result = await get('org.hypercerts.claim.listActivities', {
     authors: [authorDid],
-    authorType: 'person',
+    hasOrganizationRecord: false,
     contributors: [contributorDid],
     involvedActors: [contributorDid],
     uris: [activityRecord.uri, staleOnlyActivityRecord.uri],
@@ -74,6 +81,33 @@ test('listActivities filters by contributor DID only when the exact referenced v
     contributors: [contributorDid], uris: [staleOnlyActivityRecord.uri],
   });
   assert.deepEqual(staleOnly.activities, []);
+});
+
+test('listActivities filters by organization self-record presence independently of profiles', async () => {
+  const organizationAuthor = await get('org.hypercerts.claim.listActivities', {
+    authors: [organizationOnlyActivityRecord.did], hasOrganizationRecord: true,
+  });
+  assert.deepEqual(organizationAuthor.activities.map(({ uri }) => uri), [organizationOnlyActivityRecord.uri]);
+  assert.equal(organizationAuthor.activities[0].author.profile, null);
+  assert.equal(organizationAuthor.activities[0].author.organization.did, organizationOnlyActivityRecord.did);
+  assert.equal(organizationAuthor.activities[0].author.organization.record.organizationType[0], 'community');
+
+  const organizationExcluded = await get('org.hypercerts.claim.listActivities', {
+    authors: [organizationOnlyActivityRecord.did], hasOrganizationRecord: false,
+  });
+  assert.deepEqual(organizationExcluded.activities, []);
+
+  const profilelessAuthor = await get('org.hypercerts.claim.listActivities', {
+    authors: [profilelessActivityRecord.did], hasOrganizationRecord: false,
+  });
+  assert.deepEqual(profilelessAuthor.activities.map(({ uri }) => uri), [profilelessActivityRecord.uri]);
+  assert.equal(profilelessAuthor.activities[0].author.profile, null);
+  assert.equal(profilelessAuthor.activities[0].author.organization, null);
+
+  const profilelessExcluded = await get('org.hypercerts.claim.listActivities', {
+    authors: [profilelessActivityRecord.did], hasOrganizationRecord: true,
+  });
+  assert.deepEqual(profilelessExcluded.activities, []);
 });
 
 test('searchActivities treats wildcard characters literally and applies URI filters', async () => {

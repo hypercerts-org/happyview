@@ -108,6 +108,13 @@ test('activity API manifests and Lexicons declare the implemented endpoint contr
   assert.equal(listSchema.defs.main.parameters.properties.limit.maximum, 100);
   assert.deepEqual(searchSchema.defs.main.parameters.required, ['search']);
   assert.equal(searchSchema.defs.main.parameters.properties.contributors.maxLength, 100);
+  for (const schema of [listSchema, searchSchema]) {
+    const properties = schema.defs.main.parameters.properties;
+    assert.equal(properties.hasOrganizationRecord.type, 'boolean');
+    assert.match(properties.hasOrganizationRecord.description, /organization\/self/i);
+    assert.match(properties.hasOrganizationRecord.description, /regardless of profile/i);
+    assert.equal(Object.hasOwn(properties, 'authorType'), false);
+  }
   assert.equal(listSchema.defs.output.properties.activities.items.ref, `${getSchema.id}#activityView`);
   assert.equal(searchSchema.defs.output.properties.activities.items.ref, `${getSchema.id}#activityView`);
 });
@@ -369,7 +376,7 @@ function activityRow({ uri, did = authorDid, record, cid, sortTimestamp }) {
   };
 }
 
-test('listActivities combines actor, author-type, URI, and contributor filters before paging and hydrates only the page', () => {
+test('listActivities combines actor, organization-record, URI, and contributor filters before paging and hydrates only the page', () => {
   const firstUri = `at://${authorDid}/${ACTIVITY}/first`;
   const lookaheadUri = `at://${authorDid}/${ACTIVITY}/lookahead`;
   const exactInfoCid = 'bafyreiffffffffffffffffffffffffffffffffffffffffffffffffffff';
@@ -408,7 +415,7 @@ test('listActivities combines actor, author-type, URI, and contributor filters b
   const result = runLuaEndpoint({
     endpoint: 'listActivities',
     params: {
-      authors: [authorDid, authorDid], authorType: 'person', contributors: [contributorDid, contributorDid],
+      authors: [authorDid, authorDid], hasOrganizationRecord: 'false', contributors: [contributorDid, contributorDid],
       involvedActors: [contributorDid, contributorDid], uris: [firstUri, lookaheadUri, firstUri], sortDirection: 'asc', limit: '1',
     },
     queryResults: [[first, lookahead], [info], [authorProfile, contributorProfile], []],
@@ -424,7 +431,10 @@ assert(result.activities[1].contributors[1].actor.profile.record.displayName == 
 local sql = calls[1].sql
 assert(sql:find('activity.did IN ($2)', 1, true), 'duplicate author DIDs must be removed before binding')
 assert(sql:find('activity.uri IN ($6, $7)', 1, true), 'duplicate URIs must be removed before binding')
-assert(sql:find('organization', 1, true) and sql:find('profile', 1, true), 'authorType must distinguish organization and person authors')
+assert(sql:find("NOT EXISTS (SELECT 1 FROM happyview_records AS organization", 1, true), 'false must require no organization self record')
+assert(sql:find("organization.collection = 'app.certified.actor.organization'", 1, true))
+assert(sql:find("organization.rkey = 'self'", 1, true) and sql:find('organization.did = activity.did', 1, true))
+assert(not sql:find("app.certified.actor.profile", 1, true), 'organization-record filtering must not depend on a profile')
 assert(sql:find('jsonb_array_elements', 1, true), 'contributor matching must inspect each contributor entry')
 assert(sql:find('ci.cid', 1, true) and sql:find('ci.uri', 1, true), 'contributor references must join by exact CID and URI')
 assert(sql:find('ORDER BY sorted.sort_at ASC, activity.uri ASC', 1, true))
@@ -475,13 +485,41 @@ assert(sql:find(' AND ', 1, true), 'search and authors must combine with AND')
   assert.equal(result.status, 0, `${result.stderr}${result.stdout}`);
 });
 
-test('listActivities authorType organization selects organization sidecars', () => {
-  const result = runLuaEndpoint({
-    endpoint: 'listActivities', params: { authorType: 'organization' }, queryResults: [[]],
-    assertions: `
+test('listActivities and searchActivities filter by self organization-record presence', () => {
+  for (const { endpoint, params, predicate } of [
+    { endpoint: 'listActivities', params: { hasOrganizationRecord: 'true' }, predicate: 'EXISTS' },
+    { endpoint: 'searchActivities', params: { search: 'forest', hasOrganizationRecord: 'false' }, predicate: 'NOT EXISTS' },
+  ]) {
+    const result = runLuaEndpoint({
+      endpoint, params, queryResults: [[]],
+      assertions: `
 assert(#result.activities == 0 and result.cursor == nil)
-assert(calls[1].sql:find("organization.collection = 'app.certified.actor.organization'", 1, true))
-assert(not calls[1].sql:find('NOT EXISTS', 1, true))
+local sql = calls[1].sql
+assert(sql:find("${predicate} (SELECT 1 FROM happyview_records AS organization", 1, true))
+assert(sql:find("organization.collection = 'app.certified.actor.organization'", 1, true))
+assert(sql:find("organization.rkey = 'self'", 1, true) and sql:find('organization.did = activity.did', 1, true))
+assert(not sql:find("app.certified.actor.profile", 1, true), 'the filter must not depend on profiles')
+`,
+    });
+    assert.equal(result.status, 0, `${result.stderr}${result.stdout}`);
+  }
+});
+
+test('hasOrganizationRecord=false retains activity authors that have no profile', () => {
+  const profilelessDid = 'did:web:no-relations.example';
+  const uri = `at://${profilelessDid}/${ACTIVITY}/profileless-author`;
+  const row = activityRow({
+    uri, did: profilelessDid, cid: 'bafyreicccccccccccccccccccccccccccccccccccccccccccccccccccc',
+    record: { title: 'Profileless author', shortDescription: 'Organization absence is independent of profile presence', createdAt: indexedAt },
+  });
+  const result = runLuaEndpoint({
+    endpoint: 'listActivities', params: { authors: [profilelessDid], hasOrganizationRecord: 'false' },
+    queryResults: [[row], [], []],
+    assertions: `
+assert(#result.activities == 1 and result.activities[1].uri == '${uri}')
+assert(result.activities[1].author.profile == NULL and result.activities[1].author.organization == NULL)
+assert(calls[1].sql:find("NOT EXISTS (SELECT 1 FROM happyview_records AS organization", 1, true))
+assert(not calls[1].sql:find("app.certified.actor.profile", 1, true))
 `,
   });
   assert.equal(result.status, 0, `${result.stderr}${result.stdout}`);
@@ -537,7 +575,9 @@ test('activity queries reject malformed filters and bounded-input violations bef
     { involvedActors: ['did:1:bad'] },
     { uris: ['at://alice.example/org.hypercerts.claim.activity/x'] },
     { uris: ['at://did:plc:aaaaaaaaaaaaaaaaaaaaaaaa/app.certified.location/x'] },
-    { authorType: 'group' },
+    { authorType: 'person' },
+    { hasOrganizationRecord: 'sometimes' },
+    { hasOrganizationRecord: ['true', 'false'] },
     { limit: '0' },
     { limit: '101' },
     { limit: ['1', '2'] },

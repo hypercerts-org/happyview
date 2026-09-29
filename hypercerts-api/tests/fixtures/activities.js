@@ -42,6 +42,16 @@ export const staleOnlyActivityRecord = await row(ACTIVITY, '3jzfcijpj2z2j', {
   contributors: [{ contributorIdentity: { uri: staleContributorInformation.uri, cid: staleContributorInformation.cid } }],
 }, authorDid);
 
+export const organizationOnlyActivityRecord = await row(ACTIVITY, '3jzfcijpj2z2k', {
+  title: 'Organization-only author', shortDescription: 'The author has an organization self record and no profile.',
+  createdAt: '2025-01-03T00:00:00Z',
+}, 'did:web:organization-only.example');
+
+export const profilelessActivityRecord = await row(ACTIVITY, '3jzfcijpj2z2l', {
+  title: 'Profileless author', shortDescription: 'The author has neither an organization nor a profile record.',
+  createdAt: '2025-01-04T00:00:00Z',
+}, 'did:web:no-relations.example');
+
 export const activityAuthorProfile = await row(PROFILE, 'self', {
   displayName: 'Activity fixture author', createdAt: indexedAt,
 }, authorDid);
@@ -54,6 +64,8 @@ export const activityContributorInformationVersions = [staleContributorInformati
 export const activityFixtureRows = [
   activityRecord,
   staleOnlyActivityRecord,
+  organizationOnlyActivityRecord,
+  profilelessActivityRecord,
   latestContributorInformation,
   activityAuthorProfile,
   activityContributorProfile,
