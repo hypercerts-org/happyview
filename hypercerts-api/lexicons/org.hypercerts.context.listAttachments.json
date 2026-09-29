@@ -1,0 +1,73 @@
+{
+  "lexicon": 1,
+  "id": "org.hypercerts.context.listAttachments",
+  "defs": {
+    "main": {
+      "type": "query",
+      "description": "Lists indexed attachments. Repeated unbracketed array keys accept at most 100 values each; values within each filter use OR, distinct filters use AND, and duplicate inputs are removed. subjects matches any record.subjects[].uri without CID comparison; contentTypes is an exact open-string match. Results sort by (createdAt, uri), default desc, with an opaque cursor bound to sortDirection; input URI order is not preserved. The full record and hydrated publisher actor are returned; related targets and file bytes are not fetched. Missing author records are null, while operational hydration failures return errors. Authentication is not required.",
+      "parameters": {
+        "type": "params",
+        "properties": {
+          "authors": {
+            "type": "array",
+            "maxLength": 100,
+            "description": "Publisher repository DIDs; OR within this filter.",
+            "items": { "type": "string", "format": "did" }
+          },
+          "uris": {
+            "type": "array",
+            "maxLength": 100,
+            "description": "Exact attachment AT-URIs for bounded batch hydration; OR within this filter.",
+            "items": { "type": "string", "format": "at-uri" }
+          },
+          "subjects": {
+            "type": "array",
+            "maxLength": 100,
+            "description": "Subject AT-URIs matched against any record.subjects[].uri, regardless of position and without CID comparison; OR within this filter.",
+            "items": { "type": "string", "format": "at-uri" }
+          },
+          "contentTypes": {
+            "type": "array",
+            "maxLength": 100,
+            "description": "Exact open-string matches against record.contentType; this is not a file MIME-type filter.",
+            "items": { "type": "string" }
+          },
+          "sortDirection": {
+            "type": "string",
+            "enum": ["asc", "desc"],
+            "description": "Sort direction for (createdAt, uri); default desc."
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "description": "Maximum attachments in the page; default 25."
+          },
+          "cursor": {
+            "type": "string",
+            "description": "Opaque pagination cursor bound to sortDirection; keep other parameters unchanged between pages."
+          }
+        }
+      },
+      "output": {
+        "encoding": "application/json",
+        "schema": { "type": "ref", "ref": "#output" }
+      },
+      "errors": [
+        { "name": "InvalidRequest", "description": "A filter value, sort direction, page bound, cursor, repeated scalar, or query parameter is invalid." },
+        { "name": "AttachmentQueryFailed", "description": "The attachment query or required publisher hydration failed; retry after checking the HappyView PostgreSQL service." }
+      ]
+    },
+    "output": {
+      "type": "object",
+      "required": ["attachments"],
+      "properties": {
+        "attachments": {
+          "type": "array",
+          "items": { "type": "ref", "ref": "org.hypercerts.context.getAttachment#attachmentView" }
+        },
+        "cursor": { "type": "string", "description": "Opaque cursor for the next page; omitted when there is no next page." }
+      }
+    }
+  }
+}

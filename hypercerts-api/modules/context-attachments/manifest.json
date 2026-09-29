@@ -1,0 +1,72 @@
+{
+  "assets": [
+    {
+      "kind": "lexicon",
+      "id": "org.hypercerts.context.attachment",
+      "packagePath": "lexicons/org/hypercerts/context/attachment.json",
+      "config": { "backfill": true },
+      "dependsOn": []
+    },
+    {
+      "kind": "lexicon",
+      "id": "org.hypercerts.context.getAttachment",
+      "path": "../../lexicons/org.hypercerts.context.getAttachment.json",
+      "config": {
+        "backfill": false,
+        "target_collection": "org.hypercerts.context.attachment"
+      },
+      "dependsOn": [
+        "org.hypercerts.context.attachment",
+        "org.hypercerts.api.defs"
+      ]
+    },
+    {
+      "kind": "script",
+      "id": "xrpc.query:org.hypercerts.context.getAttachment",
+      "path": "../../lua/endpoints/getAttachment.lua",
+      "sourcePath": "../../lua/src/getAttachment.lua",
+      "sharedSourcePaths": [
+        "../../lua/shared/query.lua",
+        "../../lua/shared/recordIdentifier.lua",
+        "../../lua/shared/recordView.lua",
+        "../../lua/shared/actorView.lua",
+        "../../lua/shared/attachment.lua"
+      ],
+      "config": {
+        "script_type": "lua",
+        "description": "Hypercerts attachment lookup handler"
+      },
+      "dependsOn": ["org.hypercerts.context.getAttachment"]
+    },
+    {
+      "kind": "lexicon",
+      "id": "org.hypercerts.context.listAttachments",
+      "path": "../../lexicons/org.hypercerts.context.listAttachments.json",
+      "config": {
+        "backfill": false,
+        "target_collection": "org.hypercerts.context.attachment"
+      },
+      "dependsOn": ["org.hypercerts.context.getAttachment"]
+    },
+    {
+      "kind": "script",
+      "id": "xrpc.query:org.hypercerts.context.listAttachments",
+      "path": "../../lua/endpoints/listAttachments.lua",
+      "sourcePath": "../../lua/src/listAttachments.lua",
+      "sharedSourcePaths": [
+        "../../lua/shared/query.lua",
+        "../../lua/shared/recordIdentifier.lua",
+        "../../lua/shared/listQuery.lua",
+        "../../lua/shared/recordView.lua",
+        "../../lua/shared/actorView.lua",
+        "../../lua/shared/attachment.lua",
+        "../../lua/shared/attachmentList.lua"
+      ],
+      "config": {
+        "script_type": "lua",
+        "description": "Hypercerts attachment listing handler"
+      },
+      "dependsOn": ["org.hypercerts.context.listAttachments"]
+    }
+  ]
+}
