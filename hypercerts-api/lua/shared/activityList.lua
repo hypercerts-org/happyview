@@ -136,7 +136,7 @@ local function activity_sort_expression()
     "COALESCE(activity.indexed_at::timestamptz, activity.created_at::timestamptz) END"
 end
 
-local function activity_query(authors, author_type, contributors, involved_actors, uris, search, limit, cursor, direction)
+local function activity_query(authors, has_organization_record, contributors, involved_actors, uris, search, limit, cursor, direction)
   local where, values = { "activity.collection = $1" }, { ACTIVITY }
   if authors then
     if #authors == 0 then
@@ -145,14 +145,9 @@ local function activity_query(authors, author_type, contributors, involved_actor
       where[#where + 1] = "activity.did IN (" .. table.concat(bind_values(values, authors), ", ") .. ")"
     end
   end
-  if author_type == "organization" then
-    where[#where + 1] = "EXISTS (SELECT 1 FROM happyview_records AS organization " ..
-      "WHERE organization.collection = 'app.certified.actor.organization' AND organization.rkey = 'self' " ..
-      "AND organization.did = activity.did)"
-  elseif author_type == "person" then
-    where[#where + 1] = "EXISTS (SELECT 1 FROM happyview_records AS profile " ..
-      "WHERE profile.collection = 'app.certified.actor.profile' AND profile.rkey = 'self' AND profile.did = activity.did)"
-    where[#where + 1] = "NOT EXISTS (SELECT 1 FROM happyview_records AS organization " ..
+  if has_organization_record ~= nil then
+    local predicate = has_organization_record and "EXISTS" or "NOT EXISTS"
+    where[#where + 1] = predicate .. " (SELECT 1 FROM happyview_records AS organization " ..
       "WHERE organization.collection = 'app.certified.actor.organization' AND organization.rkey = 'self' " ..
       "AND organization.did = activity.did)"
   end
@@ -216,7 +211,7 @@ end
 local function activity_list_response(search_enabled)
   local allowed = {
     authors = true,
-    authorType = true,
+    hasOrganizationRecord = true,
     contributors = true,
     involvedActors = true,
     uris = true,
@@ -228,13 +223,19 @@ local function activity_list_response(search_enabled)
   keys_only(params, allowed)
 
   local authors = activity_array("authors", "did")
+  local has_organization_record = scalar(params, "hasOrganizationRecord")
+  if has_organization_record ~= nil then
+    if has_organization_record == "true" then
+      has_organization_record = true
+    elseif has_organization_record == "false" then
+      has_organization_record = false
+    else
+      invalid("hasOrganizationRecord must be true or false")
+    end
+  end
   local contributors = activity_array("contributors", "did")
   local involved_actors = activity_array("involvedActors", "did")
   local uris = activity_array("uris", "activityUri")
-  local author_type = scalar(params, "authorType")
-  if author_type ~= nil and author_type ~= "person" and author_type ~= "organization" then
-    invalid("authorType must be 'person' or 'organization'")
-  end
   local search
   if search_enabled then
     search = scalar(params, "search")
@@ -247,7 +248,7 @@ local function activity_list_response(search_enabled)
   local limit = integer_limit()
   local cursor = decode_activity_cursor(scalar(params, "cursor"), direction)
   local activities, next_cursor = activity_query(
-    authors, author_type, contributors, involved_actors, uris, search, limit, cursor, direction)
+    authors, has_organization_record, contributors, involved_actors, uris, search, limit, cursor, direction)
   local response = { activities = toarray(activities) }
   if next_cursor then response.cursor = next_cursor end
   return response

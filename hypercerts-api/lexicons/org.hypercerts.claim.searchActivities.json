@@ -19,10 +19,9 @@
             "description": "Repository-owner DIDs to include; values use OR.",
             "items": { "type": "string", "format": "did" }
           },
-          "authorType": {
-            "type": "string",
-            "enum": ["person", "organization"],
-            "description": "Organization authors have an organization sidecar; person authors have a profile and no organization sidecar."
+          "hasOrganizationRecord": {
+            "type": "boolean",
+            "description": "Whether each activity author has an app.certified.actor.organization/self record. False matches authors without that record regardless of profile presence."
           },
           "contributors": {
             "type": "array",
@@ -64,7 +63,7 @@
         "schema": { "type": "ref", "ref": "#output" }
       },
       "errors": [
-        { "name": "InvalidRequest", "description": "A filter, page bound, cursor, repeated scalar, or query parameter is invalid." },
+        { "name": "InvalidRequest", "description": "A filter, organization-record flag, page bound, cursor, repeated scalar, or query parameter is invalid." },
         { "name": "ActivityQueryFailed", "description": "The activity query or required hydration lookup failed; retry after checking the HappyView PostgreSQL service." }
       ]
     },
