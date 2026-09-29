@@ -350,36 +350,50 @@ function validateAssetEntry(entry, modulePath, assetIndex, owners) {
   return /** @type {ValidatedManifestAsset} */ (candidate);
 }
 
-/** @param {ValidatedManifestAsset & { lexicon_json?: unknown; body?: string }} asset @param {string} modulePath @param {string} root @returns {Promise<LoadedAsset>} */
 /* eslint-disable no-param-reassign -- the caller passes a private copy to populate with its loaded source. */
+/** @param {LexiconManifestAsset & { lexicon_json?: unknown }} asset @param {string} root */
+async function loadLexiconAssetSource(asset, root) {
+  asset.lexicon_json = await readLexiconSource(asset, root);
+  const lexiconId = /** @type {{ id?: unknown } | null} */ (asset.lexicon_json)?.id;
+  if (lexiconId !== asset.id) {
+    const displayedId = typeof lexiconId === 'string' ? lexiconId : JSON.stringify(lexiconId) ?? String(lexiconId);
+    throw new Error(`lexicon ID ${displayedId} does not match declared asset ID ${asset.id}`);
+  }
+}
+
+/** @param {ScriptManifestAsset & { body?: string }} asset @param {string} root */
+async function loadScriptAssetSource(asset, root) {
+  if (!asset.path) throw new Error('script source path is missing');
+  const source = path.resolve(root, asset.path);
+  const info = await stat(source);
+  if (!info.isFile()) throw new Error('script source is not a file');
+  asset.body = await readFile(source, 'utf8');
+  if (!asset.body.trim()) throw new Error('script source is empty');
+}
+/* eslint-enable no-param-reassign */
+
+/** @param {ValidatedManifestAsset} asset @returns {string} */
+function assetSourcePath(asset) {
+  if (typeof asset.path === 'string') return asset.path;
+  if (asset.kind === 'lexicon' && typeof asset.packagePath === 'string') return asset.packagePath;
+  return '(unset)';
+}
+
+/** @param {ValidatedManifestAsset & { lexicon_json?: unknown; body?: string }} asset @param {string} modulePath @param {string} root @returns {Promise<LoadedAsset>} */
 async function loadAssetSource(asset, modulePath, root) {
   try {
     if (asset.kind === 'lexicon') {
-      asset.lexicon_json = await readLexiconSource(asset, root);
-      const lexiconId = /** @type {{ id?: unknown } | null} */ (asset.lexicon_json)?.id;
-      if (lexiconId !== asset.id) {
-        const displayedId = typeof lexiconId === 'string' ? lexiconId : JSON.stringify(lexiconId) ?? String(lexiconId);
-        throw new Error(`lexicon ID ${displayedId} does not match declared asset ID ${asset.id}`);
-      }
+      await loadLexiconAssetSource(asset, root);
     } else {
-      if (!asset.path) throw new Error('script source path is missing');
-      const source = path.resolve(root, /** @type {string} */ (asset.path));
-      const info = await stat(source);
-      if (!info.isFile()) throw new Error('script source is not a file');
-      asset.body = await readFile(source, 'utf8');
-      if (!asset.body.trim()) throw new Error('script source is empty');
+      await loadScriptAssetSource(asset, root);
     }
   } catch (cause) {
     // Node filesystem and package-source operations throw Error instances; preserve their original message interpolation.
     const detail = /** @type {Error} */ (cause).message;
-    const sourcePath = typeof asset.path === 'string'
-      ? asset.path
-      : typeof asset.packagePath === 'string' ? asset.packagePath : '(unset)';
-    throw new Error(`Asset ${asset.id} in module ${modulePath}: source ${sourcePath} is missing, invalid or empty (${detail}); fix the declaration or source before installing`, { cause });
+    throw new Error(`Asset ${asset.id} in module ${modulePath}: source ${assetSourcePath(asset)} is missing, invalid or empty (${detail}); fix the declaration or source before installing`, { cause });
   }
   return /** @type {LoadedAsset} */ (asset);
 }
-/* eslint-enable no-param-reassign */
 
 /** @param {string} modulePath @param {string} file @param {Map<string, string>} owners @returns {Promise<LoadedAsset[]>} */
 async function loadModuleAssets(modulePath, file, owners) {
