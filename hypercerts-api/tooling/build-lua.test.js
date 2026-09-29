@@ -20,6 +20,11 @@ const sources = [
   ['lua/shared/profileList.lua', 'local function profiles_response() return row_view() end\n'],
   ['lua/shared/organization.lua', 'local function organization_actor_view() return row_view() end\n'],
   ['lua/shared/organizationList.lua', 'local function organizations_response() return organization_actor_view() end\n'],
+  ['lua/shared/activity.lua', 'local function activity_view() return "activity" end\n'],
+  ['lua/shared/activityList.lua', 'local function activity_list_response(search_enabled) return search_enabled end\n'],
+  ['lua/src/getActivity.lua', 'function handle() return activity_view() end\n'],
+  ['lua/src/listActivities.lua', 'function handle() return activity_list_response(false) end\n'],
+  ['lua/src/searchActivities.lua', 'function handle() return activity_list_response(true) end\n'],
   ['lua/src/getOrganization.lua', 'function handle() return organization_actor_view() end\n'],
   ['lua/src/listOrganizations.lua', 'function handle() return organizations_response(false) end\n'],
   ['lua/src/searchOrganizations.lua', 'function handle() return organizations_response(true) end\n'],
@@ -107,10 +112,36 @@ test('builds listing and search handlers from their declared organization source
   });
 });
 
+test('builds get, list, and search activity handlers from their declared sources', async () => {
+  await withLuaRoot(async (root) => {
+    await buildLuaBundles(root);
+    assert.equal(
+      await readFile(path.join(root, 'lua/endpoints/getActivity.lua'), 'utf8'),
+      [
+        'local function activity_view() return "activity" end',
+        'function handle() return activity_view() end',
+      ].join('\n\n') + '\n',
+    );
+    for (const [name, searchEnabled] of [['listActivities', false], ['searchActivities', true]]) {
+      assert.equal(
+        await readFile(path.join(root, `lua/endpoints/${name}.lua`), 'utf8'),
+        [
+          'local function activity_view() return "activity" end',
+          'local function activity_list_response(search_enabled) return search_enabled end',
+          `function handle() return activity_list_response(${searchEnabled}) end`,
+        ].join('\n\n') + '\n',
+      );
+    }
+  });
+});
+
 test('checks generated bundles without rewriting stale outputs', async () => {
   await withLuaRoot(async (root) => {
     const expectedStale = [
       'lua/endpoints/getLocation.lua',
+      'lua/endpoints/getActivity.lua',
+      'lua/endpoints/listActivities.lua',
+      'lua/endpoints/searchActivities.lua',
       'lua/endpoints/listLocations.lua',
       'lua/endpoints/getFollow.lua',
       'lua/endpoints/listActorFollowers.lua',
@@ -138,6 +169,9 @@ test('reports missing generated bundles and accepts fresh bundles', async () => 
   await withLuaRoot(async (root) => {
     const expected = [
       'lua/endpoints/getLocation.lua',
+      'lua/endpoints/getActivity.lua',
+      'lua/endpoints/listActivities.lua',
+      'lua/endpoints/searchActivities.lua',
       'lua/endpoints/listLocations.lua',
       'lua/endpoints/getFollow.lua',
       'lua/endpoints/listActorFollowers.lua',

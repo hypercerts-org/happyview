@@ -22,6 +22,8 @@ test('the full validation Lexicon closure resolves locally while only selected p
     'app.certified.graph.follow',
     'app.certified.location',
     'app.certified.signature.defs',
+    'org.hypercerts.claim.activity',
+    'org.hypercerts.claim.contributorInformation',
     'org.hypercerts.defs',
   ]);
   for (const asset of deployedPackageAssets) {

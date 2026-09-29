@@ -4,6 +4,7 @@ import { encode } from '@atcute/cbor';
 import * as CID from '@atcute/cid';
 import { isValidDid, isValidTid } from '@atproto/syntax';
 import { locationRecords, profileRecords, organizationRecords, seedSql } from './records.js';
+import { activityContributorInformationVersions, activityFixtureRows } from './activities.js';
 import {
   actorFollowDids,
   actorFollowOrganizationRecords,
@@ -15,12 +16,13 @@ test('fixtures have consistent full AT-URIs, valid DID/TID/CID identifiers, type
   const records = [
     ...locationRecords, ...profileRecords, ...organizationRecords,
     ...actorFollowRecords, ...actorFollowProfileRecords, ...actorFollowOrganizationRecords,
+    ...activityFixtureRows,
   ];
   for (const row of records) {
     assert.equal(row.uri, `at://${row.did}/${row.collection}/${row.rkey}`);
     assert.equal(row.record.$type, row.collection);
     assert.equal(isValidDid(row.did), true);
-    if (row.collection === 'app.certified.location' || row.collection === 'app.certified.graph.follow') assert.equal(isValidTid(row.rkey), true);
+    if (['app.certified.location', 'app.certified.graph.follow', 'org.hypercerts.claim.activity', 'org.hypercerts.claim.contributorInformation'].includes(row.collection)) assert.equal(isValidTid(row.rkey), true);
     const cid = CID.fromString(row.cid);
     assert.equal(cid.version, 1);
     assert.equal(cid.codec, 0x71);
@@ -58,6 +60,17 @@ test('actor-follow fixtures isolate publishers and cover date precedence, URI ti
   }
 });
 
+test('activity fixtures preserve a stale strong reference while seeding only the newer URI version', async () => {
+  const [stale, latest] = activityContributorInformationVersions;
+  assert.equal(stale.uri, latest.uri);
+  assert.notEqual(stale.cid, latest.cid);
+  assert.equal(activityFixtureRows.some(({ uri, cid }) => uri === stale.uri && cid === stale.cid), false);
+  assert.equal(activityFixtureRows.some(({ uri, cid }) => uri === latest.uri && cid === latest.cid), true);
+  for (const fixture of activityFixtureRows) {
+    assert.equal(CID.toString(await CID.create(0x71, encode(fixture.record))), fixture.cid);
+  }
+});
+
 test('location fixtures cover the smallBlob union variant with a shaped blob reference', () => {
   const fixture = locationRecords.find(({ record }) => record.location?.$type === 'org.hypercerts.defs#smallBlob');
   assert.ok(fixture, 'expected a location fixture using the smallBlob union variant');
@@ -71,7 +84,7 @@ test('location fixtures cover the smallBlob union variant with a shaped blob ref
 });
 
 test('fixture loader requires explicit disposable-target opt-in and parameterizes records only', () => {
-  const records = [...locationRecords, ...profileRecords, ...organizationRecords];
+  const records = [...locationRecords, ...profileRecords, ...organizationRecords, ...activityFixtureRows];
   assert.throws(() => seedSql(records, {}), /explicit disposable-test target opt-in/);
   const statements = seedSql(records, { disposableTestTarget: true });
   assert.equal(statements.length, records.length);
