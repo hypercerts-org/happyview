@@ -37,6 +37,8 @@ const sources = [
   ['lua/src/listOrganizations.lua', 'function handle() return organizations_response(false) end\n'],
   ['lua/src/searchOrganizations.lua', 'function handle() return organizations_response(true) end\n'],
   ['lua/src/getLocation.lua', 'function handle() return query() end\n'],
+  ['lua/src/getBadgeDefinition.lua', 'function handle() return badge_definition_view() end\n'],
+  ['lua/src/listBadgeDefinitions.lua', 'function handle() return badge_definitions_response() end\n'],
   ['lua/src/listLocations.lua', 'function handle() return query() end\n'],
   ['lua/src/getFollow.lua', 'function handle() return query() end\n'],
   ['lua/src/listActorFollowers.lua', 'function handle() return list() end\n'],
@@ -127,6 +129,33 @@ test('builds getProfiles from the shared profile view and endpoint sources', asy
   });
 });
 
+test('builds badge definition lookup and listing handlers from their declared sources', async () => {
+  await withLuaRoot(async (root) => {
+    await buildLuaBundles(root);
+    assert.equal(
+      await readFile(path.join(root, 'lua/endpoints/getBadgeDefinition.lua'), 'utf8'),
+      [
+        'local function query_common() return "query" end',
+        'local function record_identifier_common() return "identifier" end',
+        'local function record_view_common() return "record" end',
+        'local function actor_view_common() return "actor" end',
+        'function handle() return badge_definition_view() end',
+      ].join('\n\n') + '\n',
+    );
+    assert.equal(
+      await readFile(path.join(root, 'lua/endpoints/listBadgeDefinitions.lua'), 'utf8'),
+      [
+        'local function query_common() return "query" end',
+        'local function record_identifier_common() return "identifier" end',
+        'local function list_query_common() return "list query" end',
+        'local function record_view_common() return "record" end',
+        'local function actor_view_common() return "actor" end',
+        'function handle() return badge_definitions_response() end',
+      ].join('\n\n') + '\n',
+    );
+  });
+});
+
 test('builds the organization lookup from its declared shared and endpoint sources', async () => {
   await withLuaRoot(async (root) => {
     await buildLuaBundles(root);
@@ -186,6 +215,8 @@ test('checks generated bundles without rewriting stale outputs', async () => {
       'lua/endpoints/searchCollections.lua',
       'lua/endpoints/listCollectionItems.lua',
       'lua/endpoints/getLocation.lua',
+      'lua/endpoints/getBadgeDefinition.lua',
+      'lua/endpoints/listBadgeDefinitions.lua',
       'lua/endpoints/getActivity.lua',
       'lua/endpoints/listActivities.lua',
       'lua/endpoints/searchActivities.lua',
@@ -220,6 +251,8 @@ test('reports missing generated bundles and accepts fresh bundles', async () => 
       'lua/endpoints/searchCollections.lua',
       'lua/endpoints/listCollectionItems.lua',
       'lua/endpoints/getLocation.lua',
+      'lua/endpoints/getBadgeDefinition.lua',
+      'lua/endpoints/listBadgeDefinitions.lua',
       'lua/endpoints/getActivity.lua',
       'lua/endpoints/listActivities.lua',
       'lua/endpoints/searchActivities.lua',
