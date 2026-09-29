@@ -1,0 +1,71 @@
+{
+  "assets": [
+    {
+      "kind": "lexicon",
+      "id": "org.hypercerts.funding.receipt",
+      "packagePath": "lexicons/org/hypercerts/funding/receipt.json",
+      "config": { "backfill": true },
+      "dependsOn": []
+    },
+    {
+      "kind": "lexicon",
+      "id": "org.hypercerts.funding.getReceipt",
+      "path": "../../lexicons/org.hypercerts.funding.getReceipt.json",
+      "config": {
+        "backfill": false,
+        "target_collection": "org.hypercerts.funding.receipt"
+      },
+      "dependsOn": [
+        "org.hypercerts.funding.receipt",
+        "org.hypercerts.api.defs"
+      ]
+    },
+    {
+      "kind": "script",
+      "id": "xrpc.query:org.hypercerts.funding.getReceipt",
+      "path": "../../lua/endpoints/getReceipt.lua",
+      "sourcePath": "../../lua/src/getReceipt.lua",
+      "sharedSourcePaths": [
+        "../../lua/shared/query.lua",
+        "../../lua/shared/recordIdentifier.lua",
+        "../../lua/shared/recordView.lua",
+        "../../lua/shared/actorView.lua",
+        "../../lua/shared/fundingReceipt.lua"
+      ],
+      "config": {
+        "script_type": "lua",
+        "description": "Funding receipt lookup handler"
+      },
+      "dependsOn": ["org.hypercerts.funding.getReceipt"]
+    },
+    {
+      "kind": "lexicon",
+      "id": "org.hypercerts.funding.listReceipts",
+      "path": "../../lexicons/org.hypercerts.funding.listReceipts.json",
+      "config": {
+        "backfill": false,
+        "target_collection": "org.hypercerts.funding.receipt"
+      },
+      "dependsOn": ["org.hypercerts.funding.getReceipt"]
+    },
+    {
+      "kind": "script",
+      "id": "xrpc.query:org.hypercerts.funding.listReceipts",
+      "path": "../../lua/endpoints/listReceipts.lua",
+      "sourcePath": "../../lua/src/listReceipts.lua",
+      "sharedSourcePaths": [
+        "../../lua/shared/query.lua",
+        "../../lua/shared/recordIdentifier.lua",
+        "../../lua/shared/recordView.lua",
+        "../../lua/shared/actorView.lua",
+        "../../lua/shared/fundingReceipt.lua",
+        "../../lua/shared/fundingReceiptList.lua"
+      ],
+      "config": {
+        "script_type": "lua",
+        "description": "Funding receipt listing handler"
+      },
+      "dependsOn": ["org.hypercerts.funding.listReceipts"]
+    }
+  ]
+}

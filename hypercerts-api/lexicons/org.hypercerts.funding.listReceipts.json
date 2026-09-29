@@ -1,0 +1,85 @@
+{
+  "lexicon": 1,
+  "id": "org.hypercerts.funding.listReceipts",
+  "defs": {
+    "main": {
+      "type": "query",
+      "description": "Lists indexed funding receipt records without collapsing payments. Distinct filters combine with AND; values within each array use OR. from and to accept plain strings but the server must reject the whole request if any entry is not a DID or full record AT-URI, identifying the parameter and entry, explaining the accepted formats, and telling callers to resolve handles to DIDs. A DID matches only the party's DID variant; an AT-URI matches only its strong-reference URI, without CID comparison. These filters do not match free text or resolve wallets; omitted from adds no sender condition. forUris matches record.for.uri without CID comparison. transactionIds match exact identifiers without normalization. Repeated unbracketed array keys accept at most 100 values each; duplicates are removed. Results sort by (createdAt, uri), default desc, with an opaque cursor bound to sortDirection. The full receipt record and hydrated publisher are returned without target expansion or a duplicate parties projection. A receipt is not proof of payment; operational failures return errors, not empty pages. Authentication is not required.",
+      "parameters": {
+        "type": "params",
+        "properties": {
+          "authors": {
+            "type": "array",
+            "maxLength": 100,
+            "description": "Publisher repository DIDs, including facilitator, personal, and group repositories; OR within this filter.",
+            "items": { "type": "string", "format": "did" }
+          },
+          "uris": {
+            "type": "array",
+            "maxLength": 100,
+            "description": "Exact funding-receipt AT-URIs for bounded batch hydration; OR within this filter.",
+            "items": { "type": "string", "format": "at-uri" }
+          },
+          "from": {
+            "type": "array",
+            "maxLength": 100,
+            "description": "Mixed DID or full record AT-URI identifiers. DIDs match only the record's from DID variant; AT-URIs match only its strong-reference URI. Free text and wallet-to-DID expansion do not match; invalid entries reject the whole request with the parameter and entry identified.",
+            "items": { "type": "string" }
+          },
+          "to": {
+            "type": "array",
+            "maxLength": 100,
+            "description": "Mixed DID or full record AT-URI identifiers. DIDs match only the record's to DID variant; AT-URIs match only its strong-reference URI. Free text and wallet-to-DID expansion do not match; invalid entries reject the whole request with the parameter and entry identified.",
+            "items": { "type": "string" }
+          },
+          "forUris": {
+            "type": "array",
+            "maxLength": 100,
+            "description": "Funded-target AT-URIs matched against record.for.uri only, without CID comparison.",
+            "items": { "type": "string", "format": "at-uri" }
+          },
+          "transactionIds": {
+            "type": "array",
+            "maxLength": 100,
+            "description": "Exact transaction identifier matches; values are not normalized or generically lowercased.",
+            "items": { "type": "string" }
+          },
+          "sortDirection": {
+            "type": "string",
+            "enum": ["asc", "desc"],
+            "description": "Sort direction for (createdAt, uri); default desc."
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "description": "Maximum receipts in the page; default 25."
+          },
+          "cursor": {
+            "type": "string",
+            "description": "Opaque pagination cursor bound to sortDirection; keep other parameters unchanged between pages."
+          }
+        }
+      },
+      "output": {
+        "encoding": "application/json",
+        "schema": { "type": "ref", "ref": "#output" }
+      },
+      "errors": [
+        { "name": "InvalidRequest", "description": "A filter or page parameter is invalid. For from/to values, identify the failing parameter and entry, require a valid DID or full record AT-URI, and tell callers to resolve handles to DIDs." },
+        { "name": "ReceiptQueryFailed", "description": "The receipt query or publisher hydration lookup failed; retry after checking the HappyView PostgreSQL service." }
+      ]
+    },
+    "output": {
+      "type": "object",
+      "required": ["receipts"],
+      "properties": {
+        "receipts": {
+          "type": "array",
+          "items": { "type": "ref", "ref": "org.hypercerts.funding.getReceipt#receiptView" }
+        },
+        "cursor": { "type": "string", "description": "Opaque cursor for the next page; omitted when there is no next page." }
+      }
+    }
+  }
+}
