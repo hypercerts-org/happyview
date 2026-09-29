@@ -1,0 +1,78 @@
+{
+  "lexicon": 1,
+  "id": "org.hypercerts.claim.listActivities",
+  "defs": {
+    "main": {
+      "type": "query",
+      "description": "Lists indexed activities with AND between filters and OR within each array filter. Repeated unbracketed array values accept at most 100 supplied entries; duplicates are removed. Defaults are limit=25 and sortDirection=desc; limit is 1..100. Results sort by (createdAt, uri) and use a direction-bound opaque cursor; keep all other parameters unchanged between pages. Authentication is not required.",
+      "parameters": {
+        "type": "params",
+        "properties": {
+          "authors": {
+            "type": "array",
+            "maxLength": 100,
+            "description": "Repository-owner DIDs to include; values use OR.",
+            "items": { "type": "string", "format": "did" }
+          },
+          "authorType": {
+            "type": "string",
+            "enum": ["person", "organization"],
+            "description": "Organization authors have an organization sidecar; person authors have a profile and no organization sidecar."
+          },
+          "contributors": {
+            "type": "array",
+            "maxLength": 100,
+            "description": "Contributor DIDs to match against inline identities and exact referenced contributor-information versions; values use OR.",
+            "items": { "type": "string", "format": "did" }
+          },
+          "involvedActors": {
+            "type": "array",
+            "maxLength": 100,
+            "description": "DIDs matching either the activity repository owner or a contributor; values use OR, then combine with other filters using AND.",
+            "items": { "type": "string", "format": "did" }
+          },
+          "uris": {
+            "type": "array",
+            "maxLength": 100,
+            "description": "Activity AT-URIs for bounded batch hydration; input order is not preserved.",
+            "items": { "type": "string", "format": "at-uri" }
+          },
+          "sortDirection": {
+            "type": "string",
+            "enum": ["asc", "desc"],
+            "description": "Sort direction for (createdAt, uri); default desc."
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "description": "Maximum activities in this page; default 25."
+          },
+          "cursor": {
+            "type": "string",
+            "description": "Opaque pagination cursor bound to sortDirection."
+          }
+        }
+      },
+      "output": {
+        "encoding": "application/json",
+        "schema": { "type": "ref", "ref": "#output" }
+      },
+      "errors": [
+        { "name": "InvalidRequest", "description": "A filter, page bound, cursor, repeated scalar, or query parameter is invalid." },
+        { "name": "ActivityQueryFailed", "description": "The activity query or required hydration lookup failed; retry after checking the HappyView PostgreSQL service." }
+      ]
+    },
+    "output": {
+      "type": "object",
+      "required": ["activities"],
+      "properties": {
+        "activities": {
+          "type": "array",
+          "items": { "type": "ref", "ref": "org.hypercerts.claim.getActivity#activityView" }
+        },
+        "cursor": { "type": "string", "description": "Opaque cursor for the next page; omitted when pagination is complete." }
+      }
+    }
+  }
+}
