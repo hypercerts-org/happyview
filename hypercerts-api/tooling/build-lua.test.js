@@ -24,6 +24,7 @@ const sources = [
   ['lua/src/listActorFollowers.lua', 'function handle() return list() end\n'],
   ['lua/src/listActorFollowing.lua', 'function handle() return list() end\n'],
   ['lua/src/getProfile.lua', 'function handle() return lookup() end\n'],
+  ['lua/src/getProfiles.lua', 'function handle() return get_profiles() end\n'],
   ['lua/src/listProfiles.lua', 'function handle() return profiles_response(false) end\n'],
   ['lua/src/searchProfiles.lua', 'function handle() return profiles_response(true) end\n'],
 ];
@@ -60,6 +61,19 @@ test('builds a handler bundle from its shared and endpoint sources', async () =>
   });
 });
 
+test('builds getProfiles from the shared profile view and endpoint sources', async () => {
+  await withLuaRoot(async (root) => {
+    await buildLuaBundles(root);
+    assert.equal(
+      await readFile(path.join(root, 'lua/endpoints/getProfiles.lua'), 'utf8'),
+      [
+        'local function row_view() return "profile" end',
+        'function handle() return get_profiles() end',
+      ].join('\n\n') + '\n',
+    );
+  });
+});
+
 test('checks generated bundles without rewriting stale outputs', async () => {
   await withLuaRoot(async (root) => {
     const expectedStale = [
@@ -69,6 +83,7 @@ test('checks generated bundles without rewriting stale outputs', async () => {
       'lua/endpoints/listActorFollowers.lua',
       'lua/endpoints/listActorFollowing.lua',
       'lua/endpoints/getProfile.lua',
+      'lua/endpoints/getProfiles.lua',
       'lua/endpoints/listProfiles.lua',
       'lua/endpoints/searchProfiles.lua',
     ];
@@ -92,6 +107,7 @@ test('reports missing generated bundles and accepts fresh bundles', async () => 
       'lua/endpoints/listActorFollowers.lua',
       'lua/endpoints/listActorFollowing.lua',
       'lua/endpoints/getProfile.lua',
+      'lua/endpoints/getProfiles.lua',
       'lua/endpoints/listProfiles.lua',
       'lua/endpoints/searchProfiles.lua',
     ];
