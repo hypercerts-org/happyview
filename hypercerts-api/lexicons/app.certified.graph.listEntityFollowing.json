@@ -1,0 +1,30 @@
+{
+  "lexicon": 1,
+  "id": "app.certified.graph.listEntityFollowing",
+  "defs": {
+    "main": {
+      "type": "query",
+      "description": "Lists entities followed by one actor. Duplicate (actor, entity URI) relationships are collapsed before pagination using the earliest-created record and URI ascending tie-breaker. Results sort by each representative follow's (createdAt, uri) in sortDirection, default desc, with an opaque direction-bound cursor. Resolve the latest indexed target at each URI and hydrate only this page. Preserve the target URI and follow record when the target is missing or unsupported. Operational failures return errors, not partial pages. Authentication is not required.",
+      "parameters": {
+        "type": "params",
+        "required": ["actor"],
+        "properties": {
+          "actor": { "type": "string", "format": "did", "description": "DID of the actor whose outgoing entity follows are listed." },
+          "sortDirection": { "type": "string", "enum": ["asc", "desc"], "description": "Sort direction for representative follow (createdAt, uri); default desc." },
+          "limit": { "type": "integer", "minimum": 1, "maximum": 100, "description": "Maximum relationships in the page; default 25." },
+          "cursor": { "type": "string", "description": "Opaque cursor bound to sortDirection; keep all other query parameters unchanged." }
+        }
+      },
+      "output": { "encoding": "application/json", "schema": { "type": "ref", "ref": "#output" } },
+      "errors": [{ "name": "InvalidRequest", "description": "The actor DID, sort direction, page bound, cursor, or query parameters are invalid." }]
+    },
+    "output": {
+      "type": "object",
+      "required": ["entities"],
+      "properties": {
+        "entities": { "type": "array", "items": { "type": "ref", "ref": "org.hypercerts.api.defs#entityFollowingItem" } },
+        "cursor": { "type": "string", "description": "Opaque cursor for the next page; omitted when there are no more relationships." }
+      }
+    }
+  }
+}

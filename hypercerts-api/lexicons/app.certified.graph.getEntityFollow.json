@@ -1,0 +1,28 @@
+{
+  "lexicon": 1,
+  "id": "app.certified.graph.getEntityFollow",
+  "defs": {
+    "main": {
+      "type": "query",
+      "description": "Returns the representative entity-follow record for one actor and entity URI, or explicit null when the relationship is not indexed. Duplicate relationships use the record with earliest createdAt, URI ascending as tie-breaker. Operational failures return errors, never a missing-relationship response. Authentication is not required.",
+      "parameters": {
+        "type": "params",
+        "required": ["actor", "entity"],
+        "properties": {
+          "actor": { "type": "string", "format": "did", "description": "DID of the actor who published the entity-follow record." },
+          "entity": { "type": "string", "format": "at-uri", "description": "Full DID-authority AT-URI of the followed record identity; matching does not pin a CID or restrict the target collection." }
+        }
+      },
+      "output": { "encoding": "application/json", "schema": { "type": "ref", "ref": "#output" } },
+      "errors": [{ "name": "InvalidRequest", "description": "The actor DID, entity AT-URI, or query parameters are invalid." }]
+    },
+    "output": {
+      "type": "object",
+      "required": ["follow"],
+      "nullable": ["follow"],
+      "properties": {
+        "follow": { "type": "ref", "ref": "org.hypercerts.api.defs#entityFollowRecordView", "description": "Raw representative entity-follow record, or null when no matching relationship is indexed." }
+      }
+    }
+  }
+}

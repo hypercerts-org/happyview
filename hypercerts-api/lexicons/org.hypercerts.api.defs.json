@@ -5,8 +5,9 @@
   "defs": {
     "profileView": {
       "type": "object",
-      "description": "Profile record view preserving the full indexed record.",
+      "description": "Profile record view preserving the full indexed record; indexedAt may be null when the index has no timestamp.",
       "required": ["uri", "cid", "indexedAt", "did", "record"],
+      "nullable": ["indexedAt"],
       "properties": {
         "uri": { "type": "string", "format": "at-uri" },
         "cid": { "type": "string", "format": "cid" },
@@ -17,8 +18,9 @@
     },
     "organizationView": {
       "type": "object",
-      "description": "Raw organization sidecar record view preserving the full indexed record.",
+      "description": "Raw organization sidecar record view preserving the full indexed record; indexedAt may be null when the index has no timestamp.",
       "required": ["uri", "cid", "indexedAt", "did", "record"],
+      "nullable": ["indexedAt"],
       "properties": {
         "uri": { "type": "string", "format": "at-uri" },
         "cid": { "type": "string", "format": "cid" },
@@ -36,6 +38,50 @@
         "did": { "type": "string", "format": "did" },
         "profile": { "type": "ref", "ref": "#profileView" },
         "organization": { "type": "ref", "ref": "#organizationView" }
+      }
+    },
+    "entityFollowRecordView": {
+      "type": "object",
+      "description": "Raw indexed entity-follow record view, including the DID that published the relationship.",
+      "required": ["uri", "cid", "indexedAt", "did", "record"],
+      "nullable": ["indexedAt"],
+      "properties": {
+        "uri": { "type": "string", "format": "at-uri" },
+        "cid": { "type": "string", "format": "cid" },
+        "indexedAt": { "type": "string", "format": "datetime" },
+        "did": { "type": "string", "format": "did" },
+        "record": { "type": "ref", "ref": "app.certified.graph.entityFollow" }
+      }
+    },
+    "entityFollowerView": {
+      "type": "object",
+      "description": "The follower actor and the raw entity-follow record representing its relationship.",
+      "required": ["did", "profile", "organization", "follow"],
+      "nullable": ["profile", "organization"],
+      "properties": {
+        "did": { "type": "string", "format": "did" },
+        "profile": { "type": "ref", "ref": "#profileView" },
+        "organization": { "type": "ref", "ref": "#organizationView" },
+        "follow": { "type": "ref", "ref": "#entityFollowRecordView" }
+      }
+    },
+    "entityFollowingItem": {
+      "type": "object",
+      "description": "An entity-follow target and its relationship record. Resolve the latest indexed target by URI; retain the URI and follow when the target is missing or unsupported.",
+      "required": ["uri", "entity", "follow"],
+      "nullable": ["entity"],
+      "properties": {
+        "uri": { "type": "string", "format": "at-uri", "description": "AT-URI of the followed entity, retained even when the target cannot be resolved." },
+        "entity": {
+          "type": "union",
+          "refs": [
+            "org.hypercerts.claim.getActivity#activityView",
+            "org.hypercerts.collection.getCollection#collectionView",
+            "org.hypercerts.collection.listCollectionItems#featureView"
+          ],
+          "description": "Resolved ActivityView, CollectionView, or author-hydrated FeatureView, or null when missing or unsupported."
+        },
+        "follow": { "type": "ref", "ref": "#entityFollowRecordView" }
       }
     }
   }
