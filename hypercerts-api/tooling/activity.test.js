@@ -489,6 +489,8 @@ test('listActivities and searchActivities filter by self organization-record pre
   for (const { endpoint, params, predicate } of [
     { endpoint: 'listActivities', params: { hasOrganizationRecord: 'true' }, predicate: 'EXISTS' },
     { endpoint: 'searchActivities', params: { search: 'forest', hasOrganizationRecord: 'false' }, predicate: 'NOT EXISTS' },
+    { endpoint: 'listActivities', params: { hasOrganizationRecord: true }, predicate: 'EXISTS' },
+    { endpoint: 'searchActivities', params: { search: 'forest', hasOrganizationRecord: false }, predicate: 'NOT EXISTS' },
   ]) {
     const result = runLuaEndpoint({
       endpoint, params, queryResults: [[]],
@@ -513,7 +515,7 @@ test('hasOrganizationRecord=false retains activity authors that have no profile'
     record: { title: 'Profileless author', shortDescription: 'Organization absence is independent of profile presence', createdAt: indexedAt },
   });
   const result = runLuaEndpoint({
-    endpoint: 'listActivities', params: { authors: [profilelessDid], hasOrganizationRecord: 'false' },
+    endpoint: 'listActivities', params: { authors: [profilelessDid], hasOrganizationRecord: false },
     queryResults: [[row], [], []],
     assertions: `
 assert(#result.activities == 1 and result.activities[1].uri == '${uri}')
@@ -577,7 +579,6 @@ test('activity queries reject malformed filters and bounded-input violations bef
     { uris: ['at://did:plc:aaaaaaaaaaaaaaaaaaaaaaaa/app.certified.location/x'] },
     { authorType: 'person' },
     { hasOrganizationRecord: 'sometimes' },
-    { hasOrganizationRecord: ['true', 'false'] },
     { limit: '0' },
     { limit: '101' },
     { limit: ['1', '2'] },
@@ -589,6 +590,12 @@ test('activity queries reject malformed filters and bounded-input violations bef
     const result = runLuaEndpoint({ endpoint: 'listActivities', params, queryResults: [], expectError: 'InvalidRequest:', expectedCalls: 0 });
     assert.equal(result.status, 0, `${JSON.stringify(params)}\n${result.stderr}${result.stdout}`);
   }
+  const repeatedOrganizationRecord = runLuaEndpoint({
+    endpoint: 'listActivities', params: { hasOrganizationRecord: ['true', 'false'] }, queryResults: [],
+    expectError: 'hasOrganizationRecord must occur once', expectedCalls: 0,
+  });
+  assert.equal(repeatedOrganizationRecord.status, 0, `${repeatedOrganizationRecord.stderr}${repeatedOrganizationRecord.stdout}`);
+
   const missingSearch = runLuaEndpoint({ endpoint: 'searchActivities', params: {}, queryResults: [], expectError: 'InvalidRequest:', expectedCalls: 0 });
   assert.equal(missingSearch.status, 0, `${missingSearch.stderr}${missingSearch.stdout}`);
   const unacceptedListSearch = runLuaEndpoint({ endpoint: 'listActivities', params: { search: 'forest' }, queryResults: [], expectError: 'InvalidRequest:', expectedCalls: 0 });
