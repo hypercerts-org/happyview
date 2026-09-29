@@ -6,6 +6,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { locationRecords, profileRecords, organizationRecords } from '../tests/fixtures/records.js';
 import { actorFollowRecords, actorFollowProfileRecords, actorFollowOrganizationRecords } from '../tests/fixtures/actor-follows.js';
+import { activityFixtureRows } from '../tests/fixtures/activities.js';
 import { badDateLocations } from '../tests/fixtures/bad-location-dates.js';
 import { buildBadDateSeedInput, buildSeedInput, psqlTargetArgs } from './seed.js';
 
@@ -19,6 +20,7 @@ async function withCopiedSeedModule(run) {
     await copyFile(new URL('./seed.js', import.meta.url), path.join(root, 'tooling/seed.js'));
     await copyFile(new URL('../tests/fixtures/records.js', import.meta.url), path.join(root, 'tests/fixtures/records.js'));
     await copyFile(new URL('../tests/fixtures/actor-follows.js', import.meta.url), path.join(root, 'tests/fixtures/actor-follows.js'));
+    await copyFile(new URL('../tests/fixtures/activities.js', import.meta.url), path.join(root, 'tests/fixtures/activities.js'));
     await copyFile(new URL('../tests/fixtures/bad-dates.js', import.meta.url), path.join(root, 'tests/fixtures/bad-dates.js'));
     await copyFile(new URL('../tests/fixtures/bad-location-dates.js', import.meta.url), path.join(root, 'tests/fixtures/bad-location-dates.js'));
     await writeFile(path.join(root, 'package.json'), '{"type":"module"}\n');
@@ -172,6 +174,7 @@ test('bad-date location rows stay isolated from routine fixtures', () => {
   const normal = [
     ...locationRecords, ...profileRecords, ...organizationRecords,
     ...actorFollowRecords, ...actorFollowProfileRecords, ...actorFollowOrganizationRecords,
+    ...activityFixtureRows,
   ];
   const normalDids = new Set(normal.map(({ did }) => did));
   const normalUris = new Set(normal.map(({ uri }) => uri));
@@ -218,6 +221,7 @@ test('bad-date CLI is opt-in, passes eight-parameter SQL to selected executable,
     const expectedRows = [
       ...locationRecords, ...profileRecords, ...organizationRecords,
       ...actorFollowRecords, ...actorFollowProfileRecords, ...actorFollowOrganizationRecords,
+      ...activityFixtureRows,
     ];
     assert.equal(executions.length, expectedRows.length);
     for (const row of expectedRows) {
