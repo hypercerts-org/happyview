@@ -11,6 +11,7 @@
     "listActorFollowers": "implemented",
     "listActorFollowing": "implemented",
     "getProfile": "implemented",
+    "getProfiles": "implemented",
     "listProfiles": "implemented",
     "searchProfiles": "implemented"
   },
@@ -42,6 +43,7 @@
       "lua/src/listActorFollowers.lua",
       "lua/src/listActorFollowing.lua",
       "lua/src/getProfile.lua",
+      "lua/src/getProfiles.lua",
       "lua/src/listProfiles.lua",
       "lua/src/searchProfiles.lua"
     ],
@@ -87,6 +89,10 @@
     {
       "id": "app.certified.actor.getProfile",
       "path": "lexicons/app.certified.actor.getProfile.json"
+    },
+    {
+      "id": "app.certified.actor.getProfiles",
+      "path": "lexicons/app.certified.actor.getProfiles.json"
     },
     {
       "id": "app.certified.actor.listProfiles",

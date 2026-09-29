@@ -15,6 +15,19 @@
     },
     {
       "kind": "lexicon",
+      "id": "app.certified.actor.getProfiles",
+      "path": "../../lexicons/app.certified.actor.getProfiles.json",
+      "config": {
+        "backfill": false,
+        "target_collection": "app.certified.actor.profile"
+      },
+      "dependsOn": [
+        "app.certified.actor.profile",
+        "org.hypercerts.api.defs"
+      ]
+    },
+    {
+      "kind": "lexicon",
       "id": "app.certified.actor.listProfiles",
       "path": "../../lexicons/app.certified.actor.listProfiles.json",
       "config": {
@@ -54,6 +67,22 @@
       },
       "dependsOn": [
         "app.certified.actor.getProfile"
+      ]
+    },
+    {
+      "kind": "script",
+      "id": "xrpc.query:app.certified.actor.getProfiles",
+      "path": "../../lua/endpoints/getProfiles.lua",
+      "sourcePath": "../../lua/src/getProfiles.lua",
+      "sharedSourcePaths": [
+        "../../lua/shared/profile.lua"
+      ],
+      "config": {
+        "script_type": "lua",
+        "description": "Certified profile batch lookup handler"
+      },
+      "dependsOn": [
+        "app.certified.actor.getProfiles"
       ]
     },
     {

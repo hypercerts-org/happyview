@@ -1,0 +1,51 @@
+{
+  "lexicon": 1,
+  "id": "app.certified.actor.getProfiles",
+  "defs": {
+    "main": {
+      "type": "query",
+      "description": "Returns one profile result for each supplied actor DID, preserving input order and duplicates. Authentication is not required. actors is a required nonempty array of 1..100 DIDs, counted before deduplication, encoded as repeated unbracketed query keys. Handles are not resolved. Missing indexed profiles are returned as null. This endpoint does not paginate.",
+      "parameters": {
+        "type": "params",
+        "required": ["actors"],
+        "properties": {
+          "actors": {
+            "type": "array",
+            "description": "Actor DIDs to look up; repeated unbracketed values preserve their original order and duplicates.",
+            "minLength": 1,
+            "maxLength": 100,
+            "items": { "type": "string", "format": "did" }
+          }
+        }
+      },
+      "output": {
+        "encoding": "application/json",
+        "schema": { "type": "ref", "ref": "#output" }
+      },
+      "errors": [
+        { "name": "InvalidRequest", "description": "actors must contain 1 through 100 valid DIDs; unknown query parameters are not accepted." },
+        { "name": "ProfileQueryFailed", "description": "The indexed profiles could not be queried." }
+      ]
+    },
+    "output": {
+      "type": "object",
+      "required": ["profiles"],
+      "properties": {
+        "profiles": {
+          "type": "array",
+          "description": "One result per supplied actor occurrence, in input order. The profile is null when no indexed profile exists.",
+          "items": { "type": "ref", "ref": "#profileResult" }
+        }
+      }
+    },
+    "profileResult": {
+      "type": "object",
+      "required": ["actor", "profile"],
+      "nullable": ["profile"],
+      "properties": {
+        "actor": { "type": "string", "format": "did" },
+        "profile": { "type": "ref", "ref": "org.hypercerts.api.defs#profileView" }
+      }
+    }
+  }
+}
