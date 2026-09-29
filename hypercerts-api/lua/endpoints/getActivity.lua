@@ -52,11 +52,11 @@ local function query(sql, values)
   return result
 end
 
-local function record_view(row)
+local function record_view(row, nullable_indexed_at)
   return {
     uri = row.uri,
     cid = row.cid,
-    indexedAt = row.indexed_at,
+    indexedAt = row.indexed_at == nil and nullable_indexed_at and NULL or row.indexed_at,
     did = row.did,
     record = json.decode(row.record),
   }
@@ -123,7 +123,7 @@ local function activity_view(row)
   return {
     uri = row.uri,
     cid = row.cid,
-    indexedAt = row.indexed_at,
+    indexedAt = row.indexed_at == nil and NULL or row.indexed_at,
     did = row.did,
     author = { did = row.did },
     record = record,
@@ -177,7 +177,7 @@ local function hydrate_activity_views(views)
     if resolution.information_key then
       local row = contributor_information[resolution.information_key]
       if row then
-        local information = record_view(row)
+        local information = record_view(row, true)
         projection.contributorInformation = information
         identifier = information.record.identifier
       end

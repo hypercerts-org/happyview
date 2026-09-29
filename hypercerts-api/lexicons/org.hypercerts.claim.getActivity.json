@@ -37,6 +37,7 @@
       "type": "object",
       "description": "Activity record with metadata, unchanged source payload, hydrated author, and optional contributor projection.",
       "required": ["uri", "cid", "indexedAt", "did", "author", "record"],
+      "nullable": ["indexedAt"],
       "properties": {
         "uri": { "type": "string", "format": "at-uri" },
         "cid": { "type": "string", "format": "cid" },
@@ -74,6 +75,7 @@
       "type": "object",
       "description": "The exact indexed contributor-information version identified by the source strong reference.",
       "required": ["uri", "cid", "indexedAt", "did", "record"],
+      "nullable": ["indexedAt"],
       "properties": {
         "uri": { "type": "string", "format": "at-uri" },
         "cid": { "type": "string", "format": "cid" },
