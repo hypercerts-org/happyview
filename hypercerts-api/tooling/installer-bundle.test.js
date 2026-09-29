@@ -50,10 +50,85 @@ test('module paths must be nonempty strings and identify their index', async (t)
   }
 });
 
+test('non-string asset source paths fail with the module and asset index', async (t) => {
+  const manifest = await bundle(t, { shared: { assets: [] } });
+  const moduleFile = path.join(path.dirname(manifest), 'shared/manifest.json');
+  for (const [kind, field, value] of [
+    ['lexicon', 'path', 42],
+    ['lexicon', 'packagePath', {}],
+    ['script', 'path', ['handler.lua']],
+  ]) {
+    await writeFile(moduleFile, JSON.stringify({ assets: [{ id: 'org.example.asset', kind, [field]: value, config: {} }] }));
+    await assert.rejects(() => loadAssets(manifest), /Module shared\/manifest\.json.*assets\[0\].*(path|packagePath).*nonempty string/i);
+  }
+});
+
+test('invalid asset settings fail before loading their source', async (t) => {
+  const manifest = await bundle(t, { shared: { assets: [] } });
+  const moduleFile = path.join(path.dirname(manifest), 'shared/manifest.json');
+  for (const [kind, config, field] of [
+    ['lexicon', { backfill: 'false' }, 'backfill'],
+    ['lexicon', { target_collection: 123 }, 'target_collection'],
+    ['lexicon', { action: false }, 'action'],
+    ['lexicon', { token_cost: '2' }, 'token_cost'],
+    ['script', { script_type: 123 }, 'script_type'],
+    ['script', { description: false }, 'description'],
+  ]) {
+    await writeFile(moduleFile, JSON.stringify({ assets: [{ id: 'org.example.asset', kind, path: 'missing', config }] }));
+    await assert.rejects(() => loadAssets(manifest), (error) =>
+      /Module shared\/manifest\.json.*assets\[0\]/.test(error.message) && error.message.includes(field));
+  }
+});
+
+test('token_cost must be a signed 32-bit integer before loading its source or calling admin', async (t) => {
+  const manifest = await bundle(t, { shared: { assets: [] } });
+  const moduleFile = path.join(path.dirname(manifest), 'shared/manifest.json');
+  let adminCalls = 0;
+  for (const tokenCost of [1.5, 2147483648, -2147483649]) {
+    await writeFile(moduleFile, JSON.stringify({ assets: [{
+      id: 'org.example.asset', kind: 'lexicon', path: 'missing', config: { token_cost: tokenCost },
+    }] }));
+    await assert.rejects(async () => {
+      const { assets } = await loadAssets(manifest);
+      await applyAssets(assets, {
+        read: async () => { adminCalls++; return null; },
+        write: async () => { adminCalls++; },
+      });
+    }, /Module shared\/manifest\.json.*assets\[0\].*config\.token_cost.*signed 32-bit integer/i);
+  }
+  assert.equal(adminCalls, 0);
+});
+
+test('token_cost accepts the signed 32-bit integer boundaries', async (t) => {
+  const manifest = await bundle(t, { shared: {
+    assets: [], files: { 'schema.json': '{"id":"org.example.asset"}' },
+  } });
+  const moduleFile = path.join(path.dirname(manifest), 'shared/manifest.json');
+  for (const tokenCost of [-2147483648, 2147483647]) {
+    await writeFile(moduleFile, JSON.stringify({ assets: [{
+      id: 'org.example.asset', kind: 'lexicon', path: 'schema.json', config: { token_cost: tokenCost },
+    }] }));
+    const { assets } = await loadAssets(manifest);
+    assert.equal(assets[0].config.token_cost, tokenCost);
+  }
+});
+
 test('null module manifest identifies the module and corrective action', async (t) => {
   const manifest = await bundle(t, { shared: { assets: [] } });
   await writeFile(path.join(path.dirname(manifest), 'shared/manifest.json'), 'null');
   await assert.rejects(() => loadAssets(manifest), /Module shared\/manifest.json.*assets.*fix|Module shared\/manifest.json.*assets.*check/i);
+});
+
+test('a non-array assets field throws a type error with the existing repair message', async (t) => {
+  const manifest = await bundle(t, { shared: { assets: [] } });
+  const moduleFile = path.join(path.dirname(manifest), 'shared/manifest.json');
+  await writeFile(moduleFile, JSON.stringify({ assets: {} }));
+
+  await assert.rejects(() => loadAssets(manifest), (error) => {
+    assert.ok(error instanceof TypeError);
+    assert.equal(error.message, 'Module shared/manifest.json must declare an assets array; fix its manifest before installing');
+    return true;
+  });
 });
 
 test('invalid asset entries and IDs identify the module and asset index', async (t) => {
