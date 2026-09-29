@@ -9,7 +9,7 @@
         "type": "params",
         "properties": {
           "authors": { "type": "array", "maxLength": 100, "description": "Repository-owner DIDs; OR within this filter.", "items": { "type": "string", "format": "did" } },
-          "authorType": { "type": "string", "enum": ["person", "organization"], "description": "organization requires an author organization sidecar; person matches profile actors without that sidecar." },
+          "hasOrganizationRecord": { "type": "boolean", "description": "Whether the collection author has an app.certified.actor.organization/self record; false matches authors without it regardless of profile presence." },
           "types": { "type": "array", "maxLength": 100, "description": "Exact open-string collection types; OR within this filter.", "items": { "type": "string", "maxLength": 64 } },
           "uris": { "type": "array", "maxLength": 100, "description": "Exact collection record AT-URIs for bounded batch hydration; OR within this filter.", "items": { "type": "string", "format": "at-uri" } },
           "itemUris": { "type": "array", "maxLength": 100, "description": "Returns collections where any embedded items[].itemIdentifier.uri matches a supplied AT-URI; URI-only matching, without CID comparison or item hydration.", "items": { "type": "string", "format": "at-uri" } },
@@ -20,7 +20,7 @@
         }
       },
       "output": { "encoding": "application/json", "schema": { "type": "ref", "ref": "#output" } },
-      "errors": [{ "name": "InvalidRequest", "description": "A filter value, authorType, page bound, cursor, repeated scalar, or query parameter is invalid." }]
+      "errors": [{ "name": "InvalidRequest", "description": "A filter value, organization-record flag, page bound, cursor, repeated scalar, or query parameter is invalid." }]
     },
     "output": {
       "type": "object",

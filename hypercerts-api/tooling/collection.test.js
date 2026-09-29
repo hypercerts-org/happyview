@@ -321,6 +321,75 @@ assert(#result.collections == 1 and result.collections[1].record.title == 'Fores
   assert.equal(result.status, 0, `${result.stderr}${result.stdout}`);
 });
 
+test('collection listing filters solely by organization self-record presence', () => {
+  const scenarios = [
+    { endpoint: 'listCollections', flag: 'true', predicate: 'EXISTS', did: 'did:web:organization-only.example', hasOrganization: true },
+    { endpoint: 'searchCollections', flag: 'false', predicate: 'NOT EXISTS', did: 'did:web:no-relations.example', hasOrganization: false, search: 'forest' },
+  ];
+  for (const scenario of scenarios) {
+    const uri = `at://${scenario.did}/${COLLECTION}/organization-filter`;
+    const collectionRecord = { $type: COLLECTION, title: 'Organization filter', createdAt: '2025-01-01T00:00:00Z' };
+    const organizationRecord = {
+      $type: 'app.certified.actor.organization', organizationType: ['community'], createdAt: '2025-01-01T00:00:00Z',
+    };
+    const organizationRows = scenario.hasOrganization ? [{
+      uri: `at://${scenario.did}/app.certified.actor.organization/self`, did: scenario.did,
+      collection: 'app.certified.actor.organization', cid: 'organization-cid', indexed_at: '2025-01-02T03:04:05.000Z',
+      record: 'organization-record',
+    }] : [];
+    const source = `
+local NULL = {}
+local collectionRecord = ${lua(collectionRecord)}
+local organizationRecord = ${lua(organizationRecord)}
+local row = {
+  uri = ${JSON.stringify(uri)}, did = ${JSON.stringify(scenario.did)}, collection = '${COLLECTION}',
+  cid = 'collection-cid', indexed_at = '2025-01-02T03:04:05.000Z', record = 'collection-record',
+}
+local organizationRows = ${lua(organizationRows)}
+local calls = {}
+json = { decode = function(value)
+  if value == 'null' then return NULL end
+  if value == 'collection-record' then return collectionRecord end
+  if value == 'organization-record' then return organizationRecord end
+  error('unexpected JSON input: ' .. value)
+end }
+toarray = function(values) return values end
+params = { authors = { ${JSON.stringify(scenario.did)} }, hasOrganizationRecord = '${scenario.flag}'${scenario.search ? `, search = '${scenario.search}'` : ''} }
+db = {
+  backend = function() return 'postgres' end,
+  raw = function(sql, values)
+    calls[#calls + 1] = { sql = sql, values = values }
+    if values[1] == '${COLLECTION}' then
+      local query = calls[1].sql
+      assert(query:find("${scenario.predicate} (SELECT 1 FROM happyview_records AS organization", 1, true))
+      assert(query:find("organization.collection = 'app.certified.actor.organization'", 1, true))
+      assert(query:find("organization.rkey = 'self'", 1, true) and query:find('organization.did = collection.did', 1, true))
+      assert(not query:find("app.certified.actor.profile", 1, true), 'the filter must not depend on profiles')
+      return { row }
+    end
+    if values[1] == 'app.certified.actor.organization' then return organizationRows end
+    return {}
+  end,
+}
+dofile('lua/endpoints/${scenario.endpoint}.lua')
+local result = handle()
+assert(#result.collections == 1 and result.collections[1].uri == ${JSON.stringify(uri)})
+assert(result.collections[1].author.profile == NULL)
+${scenario.hasOrganization ? `assert(result.collections[1].author.organization.did == ${JSON.stringify(scenario.did)})` : `assert(result.collections[1].author.organization == NULL)`}
+params = { authorType = 'person'${scenario.search ? `, search = '${scenario.search}'` : ''} }
+local ok, message = pcall(handle)
+assert(not ok and tostring(message):find('InvalidRequest: unknown query parameter:', 1, true))
+assert(#calls == 3, 'removed authorType must be rejected before querying')
+params = { hasOrganizationRecord = 'sometimes'${scenario.search ? `, search = '${scenario.search}'` : ''} }
+ok, message = pcall(handle)
+assert(not ok and tostring(message):find('InvalidRequest:', 1, true))
+assert(#calls == 3, 'invalid organization-record flags must be rejected before querying')
+`;
+    const result = spawnSync('lua5.4', ['-e', source], { cwd: root, encoding: 'utf8' });
+    assert.equal(result.status, 0, `${result.stderr}${result.stdout}`);
+  }
+});
+
 test('collection Lexicons and module manifest close all four endpoint contracts', async () => {
   const manifest = JSON.parse(await readFile(new URL('../manifest.json', import.meta.url), 'utf8'));
   const collectionModulePath = 'modules/collection/manifest.json';
@@ -370,13 +439,17 @@ test('collection Lexicons and module manifest close all four endpoint contracts'
   assert.deepEqual(get.defs.collectionLocationView.nullable, ['record']);
   assert.deepEqual(get.defs.collectionTagView.nullable, ['record']);
 
-  const expectedFilters = ['authors', 'authorType', 'cursor', 'itemUris', 'limit', 'sortDirection', 'tagUris', 'types', 'uris'].sort();
+  const expectedFilters = ['authors', 'hasOrganizationRecord', 'cursor', 'itemUris', 'limit', 'sortDirection', 'tagUris', 'types', 'uris'].sort();
   assert.deepEqual(Object.keys(list.defs.main.parameters.properties).sort(), expectedFilters);
   assert.deepEqual(Object.keys(search.defs.main.parameters.properties).sort(), [...expectedFilters, 'search'].sort());
   assert.deepEqual(search.defs.main.parameters.required, ['search']);
   for (const query of [list, search]) {
     const properties = query.defs.main.parameters.properties;
     for (const name of ['authors', 'types', 'uris', 'itemUris', 'tagUris']) assert.equal(properties[name].maxLength, 100);
+    assert.equal(properties.hasOrganizationRecord.type, 'boolean');
+    assert.match(properties.hasOrganizationRecord.description, /organization\/self/i);
+    assert.match(properties.hasOrganizationRecord.description, /regardless of profile/i);
+    assert.equal(Object.hasOwn(properties, 'authorType'), false);
     assert.equal(properties.limit.maximum, 100);
     assert.equal(query.defs.output.properties.collections.items.ref, `${get.id}#collectionView`);
   }

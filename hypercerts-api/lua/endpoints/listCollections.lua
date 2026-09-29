@@ -343,14 +343,9 @@ local function collection_list_query(filters, search, limit, cursor, direction)
       where[#where + 1] = "collection.did IN (" .. table.concat(collection_bind_values(values, filters.authors), ", ") .. ")"
     end
   end
-  if filters.authorType == "organization" then
-    where[#where + 1] = "EXISTS (SELECT 1 FROM happyview_records AS organization " ..
-      "WHERE organization.collection = 'app.certified.actor.organization' AND organization.rkey = 'self' " ..
-      "AND organization.did = collection.did)"
-  elseif filters.authorType == "person" then
-    where[#where + 1] = "EXISTS (SELECT 1 FROM happyview_records AS profile " ..
-      "WHERE profile.collection = 'app.certified.actor.profile' AND profile.rkey = 'self' AND profile.did = collection.did)"
-    where[#where + 1] = "NOT EXISTS (SELECT 1 FROM happyview_records AS organization " ..
+  if filters.hasOrganizationRecord ~= nil then
+    local predicate = filters.hasOrganizationRecord and "EXISTS" or "NOT EXISTS"
+    where[#where + 1] = predicate .. " (SELECT 1 FROM happyview_records AS organization " ..
       "WHERE organization.collection = 'app.certified.actor.organization' AND organization.rkey = 'self' " ..
       "AND organization.did = collection.did)"
   end
@@ -440,7 +435,7 @@ end
 local function collection_list_response(search_enabled)
   local allowed = {
     authors = true,
-    authorType = true,
+    hasOrganizationRecord = true,
     types = true,
     uris = true,
     itemUris = true,
@@ -453,9 +448,15 @@ local function collection_list_response(search_enabled)
   collection_keys_only(params, allowed)
 
   local authors = collection_array("authors", "did")
-  local author_type = collection_scalar(params, "authorType")
-  if author_type ~= nil and author_type ~= "person" and author_type ~= "organization" then
-    collection_invalid("authorType must be 'person' or 'organization'")
+  local has_organization_record = collection_scalar(params, "hasOrganizationRecord")
+  if has_organization_record ~= nil then
+    if has_organization_record == "true" then
+      has_organization_record = true
+    elseif has_organization_record == "false" then
+      has_organization_record = false
+    else
+      collection_invalid("hasOrganizationRecord must be true or false")
+    end
   end
   local types = collection_array("types", "type")
   local uris = collection_array("uris", "collectionUri")
@@ -476,7 +477,7 @@ local function collection_list_response(search_enabled)
   local cursor = collection_list_cursor_decode(collection_scalar(params, "cursor"), direction)
   local collections, next_cursor = collection_list_query({
     authors = authors,
-    authorType = author_type,
+    hasOrganizationRecord = has_organization_record,
     types = types,
     uris = uris,
     itemUris = item_uris,
