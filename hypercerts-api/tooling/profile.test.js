@@ -229,6 +229,13 @@ test('getProfiles requires 1..100 valid DIDs before querying', () => {
   }
 });
 
+test('getProfiles rejects malformed DID percent escapes before querying', () => {
+  runLua({
+    endpoint: 'getProfiles', params: { actors: ['did:plc:abcd%ZZ'] },
+    expectError: 'InvalidRequest: each actors value must be a valid DID', expectedCalls: 0, expectedHttpCalls: 0,
+  });
+});
+
 test('getProfile returns the complete indexed profile view without sidecar queries', () => {
   const record = { displayName: 'Forest Commons', description: 'A profile with its original fields', createdAt: '2025-01-01T00:00:00Z' };
   const row = profileRow(actor, 'one', record, record.createdAt);
