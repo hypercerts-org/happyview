@@ -30,6 +30,10 @@ const sources = [
   ['lua/shared/organizationList.lua', 'local function organizations_response() return organization_actor_view() end\n'],
   ['lua/shared/activity.lua', 'local function activity_view() return "activity" end\n'],
   ['lua/shared/activityList.lua', 'local function activity_list_response(search_enabled) return search_enabled end\n'],
+  ['lua/shared/attachment.lua', 'local function attachment_view_common() return "attachment" end\n'],
+  ['lua/shared/attachmentList.lua', 'local function attachment_list_common() return attachment_view_common() end\n'],
+  ['lua/src/getAttachment.lua', 'function handle() return attachment_view_common() end\n'],
+  ['lua/src/listAttachments.lua', 'function handle() return attachment_list_common() end\n'],
   ['lua/src/getActivity.lua', 'function handle() return activity_view() end\n'],
   ['lua/src/listActivities.lua', 'function handle() return activity_list_response(false) end\n'],
   ['lua/src/searchActivities.lua', 'function handle() return activity_list_response(true) end\n'],
@@ -127,6 +131,36 @@ test('builds getProfiles from the shared profile view and endpoint sources', asy
   });
 });
 
+test('builds context attachment lookup and listing handlers from their declared source order', async () => {
+  await withLuaRoot(async (root) => {
+    await buildLuaBundles(root);
+    assert.equal(
+      await readFile(path.join(root, 'lua/endpoints/getAttachment.lua'), 'utf8'),
+      [
+        'local function query_common() return "query" end',
+        'local function record_identifier_common() return "identifier" end',
+        'local function record_view_common() return "record" end',
+        'local function actor_view_common() return "actor" end',
+        'local function attachment_view_common() return "attachment" end',
+        'function handle() return attachment_view_common() end',
+      ].join('\n\n') + '\n',
+    );
+    assert.equal(
+      await readFile(path.join(root, 'lua/endpoints/listAttachments.lua'), 'utf8'),
+      [
+        'local function query_common() return "query" end',
+        'local function record_identifier_common() return "identifier" end',
+        'local function list_query_common() return "list query" end',
+        'local function record_view_common() return "record" end',
+        'local function actor_view_common() return "actor" end',
+        'local function attachment_view_common() return "attachment" end',
+        'local function attachment_list_common() return attachment_view_common() end',
+        'function handle() return attachment_list_common() end',
+      ].join('\n\n') + '\n',
+    );
+  });
+});
+
 test('builds the organization lookup from its declared shared and endpoint sources', async () => {
   await withLuaRoot(async (root) => {
     await buildLuaBundles(root);
@@ -185,6 +219,8 @@ test('checks generated bundles without rewriting stale outputs', async () => {
       'lua/endpoints/listCollections.lua',
       'lua/endpoints/searchCollections.lua',
       'lua/endpoints/listCollectionItems.lua',
+      'lua/endpoints/getAttachment.lua',
+      'lua/endpoints/listAttachments.lua',
       'lua/endpoints/getLocation.lua',
       'lua/endpoints/getActivity.lua',
       'lua/endpoints/listActivities.lua',
@@ -219,6 +255,8 @@ test('reports missing generated bundles and accepts fresh bundles', async () => 
       'lua/endpoints/listCollections.lua',
       'lua/endpoints/searchCollections.lua',
       'lua/endpoints/listCollectionItems.lua',
+      'lua/endpoints/getAttachment.lua',
+      'lua/endpoints/listAttachments.lua',
       'lua/endpoints/getLocation.lua',
       'lua/endpoints/getActivity.lua',
       'lua/endpoints/listActivities.lua',
