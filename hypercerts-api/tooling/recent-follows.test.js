@@ -33,8 +33,11 @@ test('recent-follows registers both record schemas without owning the sibling en
     const manifest = await readJson(path.join(root, modulePath));
     moduleAssets.push(...manifest.assets.map((asset) => ({ ...asset, modulePath })));
   }
-  assert.equal(moduleAssets.filter(({ id }) => id === 'app.certified.graph.entityFollow').length <= 1, true,
-    'the sibling-owned entityFollow installed asset is not duplicated');
+  assert.deepEqual(
+    moduleAssets.filter(({ id }) => id === 'app.certified.graph.entityFollow').map(({ modulePath }) => modulePath),
+    ['modules/entity-follow/manifest.json'],
+    'the entityFollow installed asset has exactly one owner: its sibling module',
+  );
   assert.equal(moduleAssets.filter(({ id }) => id === 'app.certified.graph.follow').length, 1,
     'the existing account-follow installed asset has a single owner');
 
