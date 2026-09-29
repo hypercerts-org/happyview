@@ -1,9 +1,9 @@
 {
-  "name": "hypercerts-location-actor-follow-profile-organization-activity-collection-api",
+  "name": "hypercerts-location-actor-follow-profile-organization-activity-collection-context-evaluation-api",
   "collection": "app.certified.location",
   "targetHappyViewRevision": "a2f347e605d7cd9c11669b320e43c10dbfe982e3",
   "runtimeCompatibility": "compatible-at-target-revision",
-  "status": "handlers-implemented; location-and-actor-follow-runtime-validated-at-target-revision; organization-activity-and-collection-runtime-validation-pending",
+  "status": "handlers-implemented; location-and-actor-follow-runtime-validated-at-target-revision; organization-activity-collection-and-context-evaluation-runtime-validation-pending",
   "handlerStatus": {
     "getLocation": "implemented",
     "listLocations": "implemented",
@@ -18,7 +18,9 @@
     "listOrganizations": "implemented",
     "searchOrganizations": "implemented",
     "getActivity": "implemented",
+    "getEvaluation": "implemented",
     "listActivities": "implemented",
+    "listEvaluations": "implemented",
     "searchActivities": "implemented",
     "getCollection": "implemented",
     "listCollections": "implemented",
@@ -28,7 +30,7 @@
   "authentication": {
     "decision": "public",
     "unresolved": false,
-    "note": "The location, actor-follow, actor-profile, organization, activity, and collection query endpoints expose public record reads and require no caller authentication."
+    "note": "The location, actor-follow, actor-profile, organization, activity, collection, and context-evaluation query endpoints expose public record reads and require no caller authentication."
   },
   "luaBuild": {
     "command": "pnpm build:lua",
@@ -49,13 +51,17 @@
       "lua/shared/organizationList.lua",
       "lua/shared/activity.lua",
       "lua/shared/activityList.lua",
+      "lua/shared/evaluation.lua",
+      "lua/shared/evaluationList.lua",
       "lua/shared/collection.lua",
       "lua/shared/collectionList.lua",
       "lua/shared/collectionItems.lua"
     ],
     "endpointSources": [
       "lua/src/getActivity.lua",
+      "lua/src/getEvaluation.lua",
       "lua/src/listActivities.lua",
+      "lua/src/listEvaluations.lua",
       "lua/src/searchActivities.lua",
       "lua/src/getCollection.lua",
       "lua/src/listCollections.lua",
@@ -80,6 +86,10 @@
     {
       "id": "app.certified.location",
       "packagePath": "lexicons/app/certified/location.json"
+    },
+    {
+      "id": "app.certified.defs",
+      "packagePath": "lexicons/app/certified/defs.json"
     },
     {
       "id": "org.hypercerts.api.defs",
@@ -144,6 +154,18 @@
     {
       "id": "org.hypercerts.claim.getActivity",
       "path": "lexicons/org.hypercerts.claim.getActivity.json"
+    },
+    {
+      "id": "org.hypercerts.context.evaluation",
+      "packagePath": "lexicons/org/hypercerts/context/evaluation.json"
+    },
+    {
+      "id": "org.hypercerts.context.getEvaluation",
+      "path": "lexicons/org.hypercerts.context.getEvaluation.json"
+    },
+    {
+      "id": "org.hypercerts.context.listEvaluations",
+      "path": "lexicons/org.hypercerts.context.listEvaluations.json"
     },
     {
       "id": "org.hypercerts.claim.listActivities",
@@ -320,6 +342,7 @@
     "modules/profile/manifest.json",
     "modules/organization/manifest.json",
     "modules/activity/manifest.json",
-    "modules/collection/manifest.json"
+    "modules/collection/manifest.json",
+    "modules/context-evaluation/manifest.json"
   ]
 }
