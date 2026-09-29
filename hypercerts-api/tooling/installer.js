@@ -4,16 +4,17 @@ import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { readLexiconSource } from './lexicon-source.js';
 
-/** @typedef {Record<string, unknown>} AssetConfig */
-/** @typedef {{ modules: unknown[] }} BundleManifest */
-/** @typedef {{ assets: unknown[] }} ModuleManifest */
-/**
- * Manifest fields proven by validateAssetEntry. Source paths and option values
- * remain unknown because that runtime validator does not inspect them.
- * @typedef {{ id: string; kind: 'lexicon' | 'script'; config: AssetConfig; dependsOn?: string[]; path?: unknown; packagePath?: unknown }} ValidatedManifestAsset
- */
-/** @typedef {ValidatedManifestAsset & { kind: 'lexicon'; lexicon_json: unknown }} LoadedLexiconAsset */
-/** @typedef {ValidatedManifestAsset & { kind: 'script'; path: string; body: string }} LoadedScriptAsset */
+/** @typedef {Record<string, unknown> & { backfill?: boolean; target_collection?: string; action?: string; token_cost?: number }} LexiconAssetConfig */
+/** @typedef {Record<string, unknown> & { script_type?: string; description?: string }} ScriptAssetConfig */
+/** @typedef {LexiconAssetConfig | ScriptAssetConfig} AssetConfig */
+/** @typedef {Record<string, unknown> & { id: string; kind: 'lexicon' | 'script' }} AssetCandidate */
+/** @typedef {Record<string, unknown> & { modules: string[] }} BundleManifest */
+/** @typedef {Record<string, unknown> & { id: string; kind: 'lexicon'; config: LexiconAssetConfig; dependsOn?: string[]; path?: string; packagePath?: string }} LexiconManifestAsset */
+/** @typedef {Record<string, unknown> & { id: string; kind: 'script'; config: ScriptAssetConfig; dependsOn?: string[]; path?: string }} ScriptManifestAsset */
+/** @typedef {LexiconManifestAsset | ScriptManifestAsset} ValidatedManifestAsset */
+/** @typedef {Record<string, unknown> & { assets: ValidatedManifestAsset[] }} ModuleManifest */
+/** @typedef {LexiconManifestAsset & { lexicon_json: unknown }} LoadedLexiconAsset */
+/** @typedef {ScriptManifestAsset & { path: string; body: string }} LoadedScriptAsset */
 /** @typedef {LoadedLexiconAsset | LoadedScriptAsset} LoadedAsset */
 /** @typedef {{ id: string; kind?: 'lexicon' | 'script'; dependsOn?: string[] }} OrderableAsset */
 /** @typedef {'missing' | 'unchanged'} InstallState */
@@ -217,18 +218,30 @@ export async function applyAssets(assets, client) {
 // { "modules": ["modules/shared/manifest.json", "modules/location/manifest.json"] }
 /** @param {string} manifestPath @returns {Promise<BundleManifest>} */
 async function readBundleManifest(manifestPath) {
-  let manifest;
+  let parsed;
   try {
-    manifest = JSON.parse(await readFile(manifestPath, 'utf8'));
+    parsed = JSON.parse(await readFile(manifestPath, 'utf8'));
   } catch (cause) {
     // readFile and JSON.parse throw Error instances; preserve their original message interpolation.
     const detail = /** @type {Error} */ (cause).message;
     throw new Error(`Bundle ${manifestPath} is missing or invalid (${detail}); create or fix the root manifest before installing`, { cause });
   }
-  if (!manifest || typeof manifest !== 'object' || Array.isArray(manifest) || !Array.isArray(manifest.modules) || manifest.modules.length === 0) {
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
     throw new Error(`Bundle ${manifestPath} must list at least one module manifest in modules; add a module before installing`);
   }
-  return manifest;
+  const candidate = /** @type {Record<string, unknown>} */ (parsed);
+  if (!Array.isArray(candidate.modules) || candidate.modules.length === 0) {
+    throw new Error(`Bundle ${manifestPath} must list at least one module manifest in modules; add a module before installing`);
+  }
+  /** @type {string[]} */
+  const modules = [];
+  for (const [moduleIndex, modulePath] of candidate.modules.entries()) {
+    if (typeof modulePath !== 'string' || !modulePath.trim()) {
+      throw new Error(`Bundle ${manifestPath} modules[${moduleIndex}] must be a nonempty module path; fix the modules list before installing`);
+    }
+    modules.push(modulePath);
+  }
+  return { ...candidate, modules };
 }
 
 // Module manifest (asset paths are relative to this module manifest):
@@ -238,38 +251,102 @@ async function readBundleManifest(manifestPath) {
 //     { "id": "org.example.handler", "kind": "script", "path": "handler.lua", "config": { "script_type": "lua" }, "dependsOn": ["org.example.schema"] }
 //   ]
 // }
-/** @param {string} modulePath @param {string} file @returns {Promise<ModuleManifest>} */
-async function readModuleManifest(modulePath, file) {
-  let module;
+/** @param {string} modulePath @param {string} file @param {Map<string, string>} owners @returns {Promise<ModuleManifest>} */
+async function readModuleManifest(modulePath, file, owners) {
+  let parsed;
   try {
-    module = JSON.parse(await readFile(file, 'utf8'));
+    parsed = JSON.parse(await readFile(file, 'utf8'));
   } catch (cause) {
     // readFile and JSON.parse throw Error instances; preserve their original message interpolation.
     const detail = /** @type {Error} */ (cause).message;
     throw new Error(`Module ${modulePath} is missing or invalid (${detail}); check the bundle's modules list and module manifest`, { cause });
   }
-  if (!module || typeof module !== 'object' || Array.isArray(module) || !Array.isArray(module.assets)) {
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
     throw new Error(`Module ${modulePath} must declare an assets array; fix its manifest before installing`);
   }
-  return module;
+  const candidate = /** @type {Record<string, unknown>} */ (parsed);
+  if (!Array.isArray(candidate.assets)) {
+    throw new TypeError(`Module ${modulePath} must declare an assets array; fix its manifest before installing`);
+  }
+  /** @type {ValidatedManifestAsset[]} */
+  const assets = [];
+  for (const [assetIndex, entry] of candidate.assets.entries()) {
+    assets.push(validateAssetEntry(entry, modulePath, assetIndex, owners));
+  }
+  return { ...candidate, assets };
+}
+
+/** @param {unknown} entry @param {string} modulePath @param {number} assetIndex @returns {AssetCandidate} */
+function validateAssetShape(entry, modulePath, assetIndex) {
+  if (!entry || typeof entry !== 'object' || Array.isArray(entry)) {
+    throw new Error(`Module ${modulePath} assets[${assetIndex}] needs a nonempty string id and kind lexicon or script; fix this asset before installing`);
+  }
+  const candidate = /** @type {Record<string, unknown>} */ (entry);
+  if (typeof candidate.id !== 'string' || !candidate.id.trim() || (candidate.kind !== 'lexicon' && candidate.kind !== 'script')) {
+    throw new Error(`Module ${modulePath} assets[${assetIndex}] needs a nonempty string id and kind lexicon or script; fix this asset before installing`);
+  }
+  return /** @type {AssetCandidate} */ (candidate);
+}
+
+/** @param {AssetCandidate} candidate @param {string} modulePath @param {number} assetIndex */
+function validateAssetDependencies(candidate, modulePath, assetIndex) {
+  if (candidate.dependsOn !== undefined && (!Array.isArray(candidate.dependsOn) || candidate.dependsOn.some((id) => typeof id !== 'string' || !id.trim()))) {
+    throw new Error(`Module ${modulePath} assets[${assetIndex}] (${candidate.id}) dependsOn must be an array of nonempty string asset IDs; fix its dependencies before installing`);
+  }
+}
+
+/** @param {string} id @param {string} modulePath @param {Map<string, string>} owners */
+function claimAssetOwnership(id, modulePath, owners) {
+  if (owners.has(id)) {
+    throw new Error(`Duplicate asset ${id} in modules ${owners.get(id)} and ${modulePath}; declare it in one owner only`);
+  }
+  owners.set(id, modulePath);
+}
+
+/** @param {string} field @param {unknown} value @param {string} expectedType @returns {boolean} */
+function isValidConfigValue(field, value, expectedType) {
+  return field === 'token_cost'
+    ? typeof value === 'number' && Number.isInteger(value) && value >= -2147483648 && value <= 2147483647
+    : typeof value === expectedType;
+}
+
+/** @param {AssetCandidate} candidate @param {string} modulePath @param {number} assetIndex */
+function validateAssetConfig(candidate, modulePath, assetIndex) {
+  if (!candidate.config || typeof candidate.config !== 'object' || Array.isArray(candidate.config)) {
+    throw new Error(`Module ${modulePath} assets[${assetIndex}] (${candidate.id}) config must be a non-array object; fix its configuration before installing`);
+  }
+  const config = /** @type {Record<string, unknown>} */ (candidate.config);
+  const configFieldTypes = candidate.kind === 'lexicon'
+    ? { backfill: 'boolean', target_collection: 'string', action: 'string', token_cost: 'number' }
+    : { script_type: 'string', description: 'string' };
+  for (const [field, expectedType] of Object.entries(configFieldTypes)) {
+    const value = config[field];
+    const valid = isValidConfigValue(field, value, expectedType);
+    if (value !== undefined && !valid) {
+      const expected = field === 'token_cost' ? 'a signed 32-bit integer' : `a ${expectedType}`;
+      throw new Error(`Module ${modulePath} assets[${assetIndex}] (${candidate.id}) config.${field} must be ${expected} when provided; fix its configuration before installing`);
+    }
+  }
+}
+
+/** @param {AssetCandidate} candidate @param {string} modulePath @param {number} assetIndex */
+function validateAssetSourcePaths(candidate, modulePath, assetIndex) {
+  const sourceFields = candidate.kind === 'lexicon' ? ['path', 'packagePath'] : ['path'];
+  for (const field of sourceFields) {
+    const sourcePath = candidate[field];
+    if (sourcePath !== undefined && (typeof sourcePath !== 'string' || !sourcePath.trim())) {
+      throw new Error(`Module ${modulePath} assets[${assetIndex}] (${candidate.id}) ${field} must be a nonempty string path when provided; fix its source declaration before installing`);
+    }
+  }
 }
 
 /** @param {unknown} entry @param {string} modulePath @param {number} assetIndex @param {Map<string, string>} owners @returns {ValidatedManifestAsset} */
 function validateAssetEntry(entry, modulePath, assetIndex, owners) {
-  const candidate = /** @type {Record<string, unknown>} */ (entry);
-  if (!entry || typeof entry !== 'object' || Array.isArray(entry) || typeof candidate.id !== 'string' || !candidate.id.trim() || (candidate.kind !== 'lexicon' && candidate.kind !== 'script')) {
-    throw new Error(`Module ${modulePath} assets[${assetIndex}] needs a nonempty string id and kind lexicon or script; fix this asset before installing`);
-  }
-  if (candidate.dependsOn !== undefined && (!Array.isArray(candidate.dependsOn) || candidate.dependsOn.some((id) => typeof id !== 'string' || !id.trim()))) {
-    throw new Error(`Module ${modulePath} assets[${assetIndex}] (${candidate.id}) dependsOn must be an array of nonempty string asset IDs; fix its dependencies before installing`);
-  }
-  if (owners.has(candidate.id)) {
-    throw new Error(`Duplicate asset ${candidate.id} in modules ${owners.get(candidate.id)} and ${modulePath}; declare it in one owner only`);
-  }
-  owners.set(candidate.id, modulePath);
-  if (!candidate.config || typeof candidate.config !== 'object' || Array.isArray(candidate.config)) {
-    throw new Error(`Module ${modulePath} assets[${assetIndex}] (${candidate.id}) config must be a non-array object; fix its configuration before installing`);
-  }
+  const candidate = validateAssetShape(entry, modulePath, assetIndex);
+  validateAssetDependencies(candidate, modulePath, assetIndex);
+  claimAssetOwnership(candidate.id, modulePath, owners);
+  validateAssetConfig(candidate, modulePath, assetIndex);
+  validateAssetSourcePaths(candidate, modulePath, assetIndex);
   return /** @type {ValidatedManifestAsset} */ (candidate);
 }
 
@@ -295,7 +372,10 @@ async function loadAssetSource(asset, modulePath, root) {
   } catch (cause) {
     // Node filesystem and package-source operations throw Error instances; preserve their original message interpolation.
     const detail = /** @type {Error} */ (cause).message;
-    throw new Error(`Asset ${asset.id} in module ${modulePath}: source ${asset.path ?? asset.packagePath ?? '(unset)'} is missing, invalid or empty (${detail}); fix the declaration or source before installing`, { cause });
+    const sourcePath = typeof asset.path === 'string'
+      ? asset.path
+      : typeof asset.packagePath === 'string' ? asset.packagePath : '(unset)';
+    throw new Error(`Asset ${asset.id} in module ${modulePath}: source ${sourcePath} is missing, invalid or empty (${detail}); fix the declaration or source before installing`, { cause });
   }
   return /** @type {LoadedAsset} */ (asset);
 }
@@ -303,12 +383,11 @@ async function loadAssetSource(asset, modulePath, root) {
 
 /** @param {string} modulePath @param {string} file @param {Map<string, string>} owners @returns {Promise<LoadedAsset[]>} */
 async function loadModuleAssets(modulePath, file, owners) {
-  const module = await readModuleManifest(modulePath, file);
+  const module = await readModuleManifest(modulePath, file, owners);
   /** @type {LoadedAsset[]} */
   const assets = [];
-  for (const [assetIndex, entry] of module.assets.entries()) {
-    const validatedAsset = validateAssetEntry(entry, modulePath, assetIndex, owners);
-    const asset = { ...validatedAsset };
+  for (const entry of module.assets) {
+    const asset = { ...entry };
     assets.push(await loadAssetSource(asset, modulePath, path.dirname(file)));
   }
   return assets;
@@ -326,10 +405,7 @@ export async function loadAssets(manifestPath) {
   const assets = [];
   /** @type {Map<string, string>} */
   const owners = new Map();
-  for (const [moduleIndex, modulePath] of manifest.modules.entries()) {
-    if (typeof modulePath !== 'string' || !modulePath.trim()) {
-      throw new Error(`Bundle ${manifestPath} modules[${moduleIndex}] must be a nonempty module path; fix the modules list before installing`);
-    }
+  for (const modulePath of manifest.modules) {
     const file = path.resolve(path.dirname(manifestPath), modulePath);
     assets.push(...await loadModuleAssets(modulePath, file, owners));
   }
