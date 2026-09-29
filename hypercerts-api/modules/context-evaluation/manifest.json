@@ -1,0 +1,80 @@
+{
+  "assets": [
+    {
+      "kind": "lexicon",
+      "id": "app.certified.defs",
+      "packagePath": "lexicons/app/certified/defs.json",
+      "config": { "backfill": false },
+      "dependsOn": []
+    },
+    {
+      "kind": "lexicon",
+      "id": "org.hypercerts.context.evaluation",
+      "packagePath": "lexicons/org/hypercerts/context/evaluation.json",
+      "config": { "backfill": true },
+      "dependsOn": [
+        "app.certified.defs",
+        "app.certified.signature.defs",
+        "org.hypercerts.defs"
+      ]
+    },
+    {
+      "kind": "lexicon",
+      "id": "org.hypercerts.context.getEvaluation",
+      "path": "../../lexicons/org.hypercerts.context.getEvaluation.json",
+      "config": {
+        "backfill": false,
+        "target_collection": "org.hypercerts.context.evaluation"
+      },
+      "dependsOn": [
+        "org.hypercerts.context.evaluation",
+        "org.hypercerts.api.defs"
+      ]
+    },
+    {
+      "kind": "script",
+      "id": "xrpc.query:org.hypercerts.context.getEvaluation",
+      "path": "../../lua/endpoints/getEvaluation.lua",
+      "sourcePath": "../../lua/src/getEvaluation.lua",
+      "sharedSourcePaths": [
+        "../../lua/shared/query.lua",
+        "../../lua/shared/recordIdentifier.lua",
+        "../../lua/shared/recordView.lua",
+        "../../lua/shared/actorView.lua",
+        "../../lua/shared/evaluation.lua"
+      ],
+      "config": {
+        "script_type": "lua",
+        "description": "Hypercerts evaluation lookup handler"
+      },
+      "dependsOn": ["org.hypercerts.context.getEvaluation"]
+    },
+    {
+      "kind": "lexicon",
+      "id": "org.hypercerts.context.listEvaluations",
+      "path": "../../lexicons/org.hypercerts.context.listEvaluations.json",
+      "config": { "backfill": false, "target_collection": "org.hypercerts.context.evaluation" },
+      "dependsOn": ["org.hypercerts.context.getEvaluation"]
+    },
+    {
+      "kind": "script",
+      "id": "xrpc.query:org.hypercerts.context.listEvaluations",
+      "path": "../../lua/endpoints/listEvaluations.lua",
+      "sourcePath": "../../lua/src/listEvaluations.lua",
+      "sharedSourcePaths": [
+        "../../lua/shared/query.lua",
+        "../../lua/shared/recordIdentifier.lua",
+        "../../lua/shared/listQuery.lua",
+        "../../lua/shared/recordView.lua",
+        "../../lua/shared/actorView.lua",
+        "../../lua/shared/evaluation.lua",
+        "../../lua/shared/evaluationList.lua"
+      ],
+      "config": {
+        "script_type": "lua",
+        "description": "Hypercerts evaluation listing handler"
+      },
+      "dependsOn": ["org.hypercerts.context.listEvaluations"]
+    }
+  ]
+}

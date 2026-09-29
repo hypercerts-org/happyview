@@ -1,0 +1,79 @@
+{
+  "lexicon": 1,
+  "id": "org.hypercerts.context.getEvaluation",
+  "defs": {
+    "main": {
+      "type": "query",
+      "description": "Looks up one indexed evaluation by exact AT-URI and hydrates its publisher plus the first 100 original evaluator entries. Later entries remain in the projection with hydrationStatus omitted and no profile or organization. The original record and evaluator positions, order, and duplicates are preserved. Missing profiles and organization sidecars are null; operational hydration failures return errors. Authentication is not required.",
+      "parameters": {
+        "type": "params",
+        "required": ["uri"],
+        "properties": {
+          "uri": {
+            "type": "string",
+            "format": "at-uri",
+            "description": "Full evaluation record AT-URI using a DID authority."
+          }
+        }
+      },
+      "output": {
+        "encoding": "application/json",
+        "schema": { "type": "ref", "ref": "#output" }
+      },
+      "errors": [
+        { "name": "InvalidRequest", "description": "The URI is invalid or is not an evaluation record AT-URI." },
+        { "name": "RecordNotFound", "description": "No indexed evaluation exists at this AT-URI." }
+      ]
+    },
+    "hydratedEvaluationEvaluatorView": {
+      "type": "object",
+      "description": "An original evaluator entry whose Certified profile and organization sidecar were looked up, including when either is missing.",
+      "required": ["did", "hydrationStatus", "profile", "organization"],
+      "nullable": ["profile", "organization"],
+      "properties": {
+        "did": { "type": "string", "format": "did" },
+        "hydrationStatus": { "type": "string", "const": "hydrated" },
+        "profile": { "type": "ref", "ref": "org.hypercerts.api.defs#profileView" },
+        "organization": { "type": "ref", "ref": "org.hypercerts.api.defs#organizationView" }
+      }
+    },
+    "omittedEvaluationEvaluatorView": {
+      "type": "object",
+      "description": "An original evaluator entry beyond the 100-position hydration cap; profile and organization are deliberately omitted.",
+      "required": ["did", "hydrationStatus"],
+      "properties": {
+        "did": { "type": "string", "format": "did" },
+        "hydrationStatus": { "type": "string", "const": "omitted" }
+      }
+    },
+    "evaluationView": {
+      "type": "object",
+      "description": "Evaluation record view with hydrated publisher and a one-for-one evaluator projection. Preserve the original record and evaluator order, length, duplicates, and entry fields; hydrate only the first 100 source positions.",
+      "required": ["uri", "cid", "indexedAt", "did", "author", "record", "evaluators"],
+      "properties": {
+        "uri": { "type": "string", "format": "at-uri" },
+        "cid": { "type": "string", "format": "cid" },
+        "indexedAt": { "type": "string", "format": "datetime" },
+        "did": { "type": "string", "format": "did" },
+        "author": { "type": "ref", "ref": "org.hypercerts.api.defs#actorView" },
+        "record": { "type": "ref", "ref": "org.hypercerts.context.evaluation" },
+        "evaluators": {
+          "type": "array",
+          "maxLength": 1000,
+          "description": "One-for-one sibling projection of record.evaluators in source order, retaining duplicates and source entry fields. Entries beyond the hydration cap remain present with hydrationStatus omitted.",
+          "items": {
+            "type": "union",
+            "refs": ["#hydratedEvaluationEvaluatorView", "#omittedEvaluationEvaluatorView"]
+          }
+        }
+      }
+    },
+    "output": {
+      "type": "object",
+      "required": ["evaluation"],
+      "properties": {
+        "evaluation": { "type": "ref", "ref": "#evaluationView" }
+      }
+    }
+  }
+}

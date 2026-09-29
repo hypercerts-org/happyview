@@ -1,0 +1,69 @@
+{
+  "lexicon": 1,
+  "id": "org.hypercerts.context.listEvaluations",
+  "defs": {
+    "main": {
+      "type": "query",
+      "description": "Lists indexed evaluations. Repeated unbracketed array keys accept at most 100 values each; values within authors, evaluators, and subjects use OR, while distinct filters use AND. evaluators matches every record.evaluators[].did, including entries beyond the hydration cap; subjects matches record.subject.uri without CID comparison. Results sort by (createdAt, uri), default desc, with an opaque cursor bound to sortDirection. Each result preserves its full record and evaluator order, length, duplicates, and entry fields; hydrate only the first 100 original evaluator positions, marking all later entries omitted. Missing profiles or organization sidecars are null; operational hydration failures return errors. Authentication is not required.",
+      "parameters": {
+        "type": "params",
+        "properties": {
+          "authors": {
+            "type": "array",
+            "maxLength": 100,
+            "description": "Publisher repository DIDs; OR within this filter.",
+            "items": { "type": "string", "format": "did" }
+          },
+          "evaluators": {
+            "type": "array",
+            "maxLength": 100,
+            "description": "DIDs named in the original record.evaluators[].did entries; filtering includes positions beyond the hydration cap.",
+            "items": { "type": "string", "format": "did" }
+          },
+          "subjects": {
+            "type": "array",
+            "maxLength": 100,
+            "description": "Subject AT-URIs matched against record.subject.uri without CID comparison; OR within this filter.",
+            "items": { "type": "string", "format": "at-uri" }
+          },
+          "sortDirection": {
+            "type": "string",
+            "enum": ["asc", "desc"],
+            "description": "Sort direction for (createdAt, uri); default desc."
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "description": "Maximum evaluations in the page; default 25."
+          },
+          "cursor": {
+            "type": "string",
+            "description": "Opaque pagination cursor, bound to sortDirection; keep other parameters unchanged between pages."
+          }
+        }
+      },
+      "output": {
+        "encoding": "application/json",
+        "schema": { "type": "ref", "ref": "#output" }
+      },
+      "errors": [
+        { "name": "InvalidRequest", "description": "A filter value, sort direction, page bound, cursor, repeated scalar, or query parameter is invalid." }
+      ]
+    },
+    "output": {
+      "type": "object",
+      "required": ["evaluations"],
+      "properties": {
+        "evaluations": {
+          "type": "array",
+          "items": { "type": "ref", "ref": "org.hypercerts.context.getEvaluation#evaluationView" }
+        },
+        "cursor": {
+          "type": "string",
+          "description": "Opaque cursor for the next page; omitted when there is no next page."
+        }
+      }
+    }
+  }
+}
