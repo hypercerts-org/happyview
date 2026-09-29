@@ -16,6 +16,7 @@ const bundles = [
   { shared: ['query', 'recordIdentifier', 'entityFollow', 'entityFollowLookup'], endpoints: ['getEntityFollow'] },
   { shared: ['query', 'recordIdentifier', 'listQuery', 'entityFollow', 'entityFollowPagination', 'entityFollowFollowers'], endpoints: ['listEntityFollowers'] },
   { shared: ['query', 'recordIdentifier', 'listQuery', 'activityProjection', 'collectionProjection', 'featureProjection', 'entityFollow', 'entityFollowPagination', 'entityFollowEntities'], endpoints: ['listEntityFollowing'] },
+  { shared: ['query', 'recentFollows'], endpoints: ['listRecentFollows'] },
   { shared: ['profile', 'profileLookup'], endpoints: ['getProfile'] },
   { shared: ['profile', 'profileList'], endpoints: ['listProfiles', 'searchProfiles'] },
   { shared: ['organization'], endpoints: ['getOrganization'] },

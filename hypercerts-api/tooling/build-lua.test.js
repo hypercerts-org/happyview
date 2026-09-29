@@ -28,6 +28,7 @@ const sources = [
   ['lua/shared/actorFollow.lua', 'local function query() return "follow" end\n'],
   ['lua/shared/actorFollowLookup.lua', 'local function lookup() return true end\n'],
   ['lua/shared/actorFollowList.lua', 'local function list() return true end\n'],
+  ['lua/shared/recentFollows.lua', 'local function recent_follows_response() return "recent follows" end\n'],
   ['lua/shared/profile.lua', 'local function row_view() return "profile" end\n'],
   ['lua/shared/profileLookup.lua', 'local function lookup() return row_view() end\n'],
   ['lua/shared/profileList.lua', 'local function profiles_response() return row_view() end\n'],
@@ -52,6 +53,7 @@ const sources = [
   ['lua/src/getEntityFollow.lua', 'function handle() return entity_follow_common() end\n'],
   ['lua/src/listEntityFollowers.lua', 'function handle() return entity_follow_common() end\n'],
   ['lua/src/listEntityFollowing.lua', 'function handle() return entity_follow_entities() end\n'],
+  ['lua/src/listRecentFollows.lua', 'function handle() return recent_follows_response() end\n'],
   ['lua/src/getProfile.lua', 'function handle() return lookup() end\n'],
   ['lua/src/listProfiles.lua', 'function handle() return profiles_response(false) end\n'],
   ['lua/src/searchProfiles.lua', 'function handle() return profiles_response(true) end\n'],
@@ -173,6 +175,20 @@ test('builds entity-follow handlers in declared shared-source dependency order',
   });
 });
 
+test('builds listRecentFollows from its declared shared and endpoint sources', async () => {
+  await withLuaRoot(async (root) => {
+    await buildLuaBundles(root);
+    assert.equal(
+      await readFile(path.join(root, 'lua/endpoints/listRecentFollows.lua'), 'utf8'),
+      [
+        'local function query_common() return "query" end',
+        'local function recent_follows_response() return "recent follows" end',
+        'function handle() return recent_follows_response() end',
+      ].join('\n\n') + '\n',
+    );
+  });
+});
+
 test('builds the organization lookup from its declared shared and endpoint sources', async () => {
   await withLuaRoot(async (root) => {
     await buildLuaBundles(root);
@@ -245,6 +261,7 @@ test('checks generated bundles without rewriting stale outputs', async () => {
       'lua/endpoints/getEntityFollow.lua',
       'lua/endpoints/listEntityFollowers.lua',
       'lua/endpoints/listEntityFollowing.lua',
+      'lua/endpoints/listRecentFollows.lua',
       'lua/endpoints/getProfile.lua',
       'lua/endpoints/listProfiles.lua',
       'lua/endpoints/searchProfiles.lua',
@@ -281,6 +298,7 @@ test('reports missing generated bundles and accepts fresh bundles', async () => 
       'lua/endpoints/getEntityFollow.lua',
       'lua/endpoints/listEntityFollowers.lua',
       'lua/endpoints/listEntityFollowing.lua',
+      'lua/endpoints/listRecentFollows.lua',
       'lua/endpoints/getProfile.lua',
       'lua/endpoints/listProfiles.lua',
       'lua/endpoints/searchProfiles.lua',
