@@ -1,0 +1,96 @@
+{
+  "lexicon": 1,
+  "id": "org.hypercerts.claim.getActivity",
+  "defs": {
+    "main": {
+      "type": "query",
+      "description": "Public lookup of one indexed activity by full AT-URI. Authentication is not required.",
+      "parameters": {
+        "type": "params",
+        "required": ["uri"],
+        "properties": {
+          "uri": {
+            "type": "string",
+            "format": "at-uri",
+            "description": "Full AT-URI of the activity record, using a DID authority."
+          }
+        }
+      },
+      "output": {
+        "encoding": "application/json",
+        "schema": { "type": "ref", "ref": "#output" }
+      },
+      "errors": [
+        { "name": "InvalidRequest", "description": "The URI is not a full activity AT-URI or the request contains an unsupported parameter." },
+        { "name": "RecordNotFound", "description": "No indexed activity exists at this AT-URI." },
+        { "name": "ActivityQueryFailed", "description": "The activity or required hydration lookup failed; retry after checking the HappyView PostgreSQL service." }
+      ]
+    },
+    "output": {
+      "type": "object",
+      "required": ["activity"],
+      "properties": {
+        "activity": { "type": "ref", "ref": "#activityView" }
+      }
+    },
+    "activityView": {
+      "type": "object",
+      "description": "Activity record with metadata, unchanged source payload, hydrated author, and optional contributor projection.",
+      "required": ["uri", "cid", "indexedAt", "did", "author", "record"],
+      "properties": {
+        "uri": { "type": "string", "format": "at-uri" },
+        "cid": { "type": "string", "format": "cid" },
+        "indexedAt": { "type": "string", "format": "datetime" },
+        "did": { "type": "string", "format": "did" },
+        "author": { "type": "ref", "ref": "org.hypercerts.api.defs#actorView" },
+        "record": { "type": "ref", "ref": "org.hypercerts.claim.activity" },
+        "contributors": {
+          "type": "array",
+          "description": "Hydrated contributor projection in the same order and with the same multiplicity as record.contributors; omitted only when the source field is absent.",
+          "items": { "type": "ref", "ref": "#activityContributorView" }
+        }
+      }
+    },
+    "activityContributorView": {
+      "type": "object",
+      "description": "Original activity contributor fields with exact-version contributor information and nullable actor hydration.",
+      "required": ["contributorIdentity", "contributorInformation", "actor"],
+      "nullable": ["contributorInformation", "actor"],
+      "properties": {
+        "contributorIdentity": {
+          "type": "union",
+          "refs": ["org.hypercerts.claim.activity#contributorIdentity", "com.atproto.repo.strongRef"]
+        },
+        "contributionWeight": { "type": "string", "maxLength": 100 },
+        "contributionDetails": {
+          "type": "union",
+          "refs": ["org.hypercerts.claim.activity#contributorRole", "com.atproto.repo.strongRef"]
+        },
+        "contributorInformation": { "type": "ref", "ref": "#contributorInformationView" },
+        "actor": { "type": "ref", "ref": "#contributorActorView" }
+      }
+    },
+    "contributorInformationView": {
+      "type": "object",
+      "description": "The exact indexed contributor-information version identified by the source strong reference.",
+      "required": ["uri", "cid", "indexedAt", "did", "record"],
+      "properties": {
+        "uri": { "type": "string", "format": "at-uri" },
+        "cid": { "type": "string", "format": "cid" },
+        "indexedAt": { "type": "string", "format": "datetime" },
+        "did": { "type": "string", "format": "did" },
+        "record": { "type": "ref", "ref": "org.hypercerts.claim.contributorInformation" }
+      }
+    },
+    "contributorActorView": {
+      "type": "object",
+      "description": "Contributor DID with nullable current Certified profile.",
+      "required": ["did", "profile"],
+      "nullable": ["profile"],
+      "properties": {
+        "did": { "type": "string", "format": "did" },
+        "profile": { "type": "ref", "ref": "org.hypercerts.api.defs#profileView" }
+      }
+    }
+  }
+}
