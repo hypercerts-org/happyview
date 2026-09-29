@@ -9,6 +9,8 @@ const bundles = [
   { shared: ['query', 'recordIdentifier', 'recordView', 'actorView', 'location'], endpoints: ['getLocation'] },
 
   { shared: ['activity'], endpoints: ['getActivity'] },
+  { shared: ['query', 'recordIdentifier', 'recordView', 'actorView', 'evaluation'], endpoints: ['getEvaluation'] },
+  { shared: ['query', 'recordIdentifier', 'listQuery', 'recordView', 'actorView', 'evaluation', 'evaluationList'], endpoints: ['listEvaluations'] },
   { shared: ['activity', 'activityList'], endpoints: ['listActivities', 'searchActivities'] },
   { shared: ['query', 'recordIdentifier', 'listQuery', 'recordView', 'actorView', 'location'], endpoints: ['listLocations'] },
   { shared: ['query', 'recordView', 'actorFollow', 'actorFollowLookup'], endpoints: ['getFollow'] },
