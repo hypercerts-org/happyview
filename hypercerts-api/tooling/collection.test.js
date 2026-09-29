@@ -325,6 +325,8 @@ test('collection listing filters solely by organization self-record presence', (
   const scenarios = [
     { endpoint: 'listCollections', flag: 'true', predicate: 'EXISTS', did: 'did:web:organization-only.example', hasOrganization: true },
     { endpoint: 'searchCollections', flag: 'false', predicate: 'NOT EXISTS', did: 'did:web:no-relations.example', hasOrganization: false, search: 'forest' },
+    { endpoint: 'listCollections', flag: true, predicate: 'EXISTS', did: 'did:web:coerced-organization.example', hasOrganization: true },
+    { endpoint: 'searchCollections', flag: false, predicate: 'NOT EXISTS', did: 'did:web:coerced-no-relations.example', hasOrganization: false, search: 'forest' },
   ];
   for (const scenario of scenarios) {
     const uri = `at://${scenario.did}/${COLLECTION}/organization-filter`;
@@ -354,7 +356,7 @@ json = { decode = function(value)
   error('unexpected JSON input: ' .. value)
 end }
 toarray = function(values) return values end
-params = { authors = { ${JSON.stringify(scenario.did)} }, hasOrganizationRecord = '${scenario.flag}'${scenario.search ? `, search = '${scenario.search}'` : ''} }
+params = { authors = { ${JSON.stringify(scenario.did)} }, hasOrganizationRecord = ${lua(scenario.flag)}${scenario.search ? `, search = '${scenario.search}'` : ''} }
 db = {
   backend = function() return 'postgres' end,
   raw = function(sql, values)
@@ -384,6 +386,10 @@ params = { hasOrganizationRecord = 'sometimes'${scenario.search ? `, search = '$
 ok, message = pcall(handle)
 assert(not ok and tostring(message):find('InvalidRequest:', 1, true))
 assert(#calls == 3, 'invalid organization-record flags must be rejected before querying')
+params = { hasOrganizationRecord = { 'true', 'false' }${scenario.search ? `, search = '${scenario.search}'` : ''} }
+ok, message = pcall(handle)
+assert(not ok and tostring(message):find('InvalidRequest: hasOrganizationRecord must occur once', 1, true))
+assert(#calls == 3, 'repeated organization-record flags must be rejected before querying')
 `;
     const result = spawnSync('lua5.4', ['-e', source], { cwd: root, encoding: 'utf8' });
     assert.equal(result.status, 0, `${result.stderr}${result.stdout}`);

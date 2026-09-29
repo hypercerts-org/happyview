@@ -18,6 +18,7 @@ end
 local function collection_scalar(values, key)
   local value = values[key]
   if value == nil then return nil end
+  if key == "hasOrganizationRecord" and type(value) == "boolean" then return tostring(value) end
   if type(value) ~= "string" and type(value) ~= "number" then
     collection_invalid(key .. " must occur once")
   end
