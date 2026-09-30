@@ -475,6 +475,48 @@ test('collection Lexicons and module manifest close all four endpoint contracts'
   ]);
 });
 
+test('listCollectionItems skips a URI-only source item and advances the cursor to the next valid item', () => {
+  const firstCid = 'bafyreiaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
+  const lastCid = 'bafyreieeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee';
+  const first = { itemIdentifier: { uri: itemUris[0], cid: firstCid }, itemWeight: '1' };
+  const broken = { itemIdentifier: { uri: itemUris[1] } };
+  const last = { itemIdentifier: { uri: itemUris[1], cid: lastCid }, itemWeight: '3' };
+  const source = `
+local NULL = {}
+local record = { items = ${lua([first, broken, last])} }
+json = {
+  decode = function(value)
+    if value == 'null' then return NULL end
+    if value == 'collection-record' then return record end
+    return { v = tonumber(value:match('"v":(%d+)')), u = value:match('"u":"([^"]+)"'), i = tonumber(value:match('"i":(%d+)')) }
+  end,
+  encode = function(value) return string.format('{"v":%d,"u":"%s","i":%d}', value.v, value.u, value.i) end,
+}
+toarray = function(value) return value end
+params = { collection = ${JSON.stringify(collectionUri)}, limit = '1' }
+db = {
+  backend = function() return 'postgres' end,
+  raw = function(sql, values)
+    if values[1] == '${COLLECTION}' and values[2] == ${JSON.stringify(collectionUri)} then
+      return { { uri = ${JSON.stringify(collectionUri)}, record = 'collection-record' } }
+    end
+    return {}
+  end,
+}
+dofile('lua/endpoints/listCollectionItems.lua')
+local first_page = handle()
+assert(#first_page.items == 1 and first_page.items[1].itemWeight == '1')
+assert(first_page.cursor ~= nil)
+params.cursor = first_page.cursor
+local second_page = handle()
+assert(#second_page.items == 1 and second_page.items[1].itemWeight == '3')
+assert(second_page.items[1].itemIdentifier.cid == ${JSON.stringify(lastCid)})
+assert(second_page.items[1].record == NULL and second_page.cursor == nil)
+`;
+  const result = spawnSync('lua5.4', ['-e', source], { cwd: root, encoding: 'utf8' });
+  assert.equal(result.status, 0, `${result.stderr}${result.stdout}`);
+});
+
 test('listCollectionItems preserves source order and weights and resolves only exact supported versions', () => {
   const itemCollectionUri = `at://${did}/${COLLECTION}/parent`;
   const activityUri = `at://${did}/org.hypercerts.claim.activity/activity-one`;

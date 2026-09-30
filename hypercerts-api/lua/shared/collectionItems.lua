@@ -226,18 +226,20 @@ local function collection_items_response()
     error("CollectionQueryFailed: indexed collection items are not an array", 0)
   end
 
-  local start = cursor and cursor.i + 1 or 1
-  local finish = math.min(start + limit - 1, #source_items)
+  local finish = cursor and cursor.i or 0
   local page, page_sources = {}, {}
-  for index = start, finish do
-    local source = source_items[index]
-    if type(source) ~= "table" then
-      error("CollectionQueryFailed: indexed collection contains an invalid item", 0)
+  while finish < #source_items and #page < limit do
+    finish = finish + 1
+    local source = source_items[finish]
+    local reference = type(source) == "table" and source.itemIdentifier
+    local usable = type(reference) == "table" and type(reference.cid) == "string" and #reference.cid > 0
+      and valid_record_uri(reference.uri)
+    if usable then
+      local item = {}
+      for key, value in pairs(source) do item[key] = value end
+      page[#page + 1] = item
+      page_sources[#page_sources + 1] = source
     end
-    local item = {}
-    for key, value in pairs(source) do item[key] = value end
-    page[#page + 1] = item
-    page_sources[#page_sources + 1] = source
   end
 
   local resolved = collection_items_resolve(page_sources)
