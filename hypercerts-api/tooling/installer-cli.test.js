@@ -45,6 +45,22 @@ test('CLI requires a nonblank admin token and does not fall back to a session co
   }
 });
 
+test('CLI reports an actionable error for a malformed HappyView admin URL', () => {
+  const script = fileURLToPath(new URL('./installer.js', import.meta.url));
+  const child = spawnSync(process.execPath, [script], {
+    encoding: 'utf8',
+    env: {
+      PATH: process.env.PATH ?? '',
+      HAPPYVIEW_BASE_URL: 'not a URL',
+      HAPPYVIEW_ADMIN_TOKEN: 'hv_cli-test-token',
+    },
+  });
+
+  assert.equal(child.status, 1);
+  assert.equal(child.stdout, '');
+  assert.equal(child.stderr, 'HappyView admin URL must be a valid HTTP(S) URL\n');
+});
+
 test('importing the installer does not run the CLI or require configuration', () => {
   const script = fileURLToPath(new URL('./installer.js', import.meta.url));
   const child = spawnSync(process.execPath, ['--input-type=module', '-e', 'await import(process.argv[1])', pathToFileURL(script).href], {

@@ -506,8 +506,7 @@ export async function resolveInstallConfig({
 
 async function main() {
   const { baseUrl: rawBaseUrl, token } = await resolveInstallConfig();
-  const baseUrl = new URL(rawBaseUrl);
-  const client = createAdminClient({ baseUrl, token });
+  const client = createAdminClient({ baseUrl: rawBaseUrl, token });
   const { assets } = await loadAssets(fileURLToPath(new URL('../manifest.json', import.meta.url)));
   const result = await applyAssets(assets, client);
   console.log(JSON.stringify(result, null, 2));
