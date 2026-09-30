@@ -12,13 +12,21 @@ local function evaluation_query(sql, values)
   return result
 end
 
-local function evaluation_view(row)
+local function evaluation_view(row, skip_invalid)
   local view = record_view(row)
   if type(view.record) ~= "table" or type(view.record.evaluators) ~= "table" then
+    if skip_invalid then return nil end
     error("EvaluationQueryFailed: indexed evaluation has no evaluator array", 0)
   end
   if #view.record.evaluators > 1000 then
+    if skip_invalid then return nil end
     error("EvaluationQueryFailed: indexed evaluation exceeds the evaluator limit", 0)
+  end
+  for _, evaluator in ipairs(view.record.evaluators) do
+    if type(evaluator) ~= "table" or not valid_did(evaluator.did) then
+      if skip_invalid then return nil end
+      error("EvaluationQueryFailed: indexed evaluation contains an invalid evaluator DID", 0)
+    end
   end
   view.author = { did = row.did }
   return view

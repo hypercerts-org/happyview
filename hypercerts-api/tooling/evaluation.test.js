@@ -151,6 +151,59 @@ assert(calls[1].values[1] == '${EVALUATION}' and calls[1].values[2] == '${evalua
   assert.equal(result.status, 0, `${result.stderr}${result.stdout}`);
 });
 
+test('listEvaluations skips an invalid evaluator row and paginates through later valid records', () => {
+  const bad = {
+    ...evaluationRow, uri: `at://${authorDid}/${EVALUATION}/bad`, record: 'bad-evaluation',
+    record_json: { ...evaluationRecord, evaluators: [{ did: 'not-a-did' }] },
+    sort_timestamp: '2025-01-03T00:00:00.000000Z',
+  };
+  const good = {
+    ...evaluationRow, uri: `at://${authorDid}/${EVALUATION}/good`, record: 'good-evaluation',
+    sort_timestamp: '2025-01-02T00:00:00.000000Z',
+  };
+  const last = {
+    ...evaluationRow, uri: `at://${authorDid}/${EVALUATION}/last`, record: 'last-evaluation',
+    sort_timestamp: '2025-01-01T00:00:00.000000Z',
+  };
+  const result = runLua({
+    endpoint: 'listEvaluations', params: { limit: '1' },
+    queryResults: [[bad, good], [good, last], [authorProfile, evaluatorProfile], [evaluatorOrganization], [last], [authorProfile, evaluatorProfile], [evaluatorOrganization]],
+    assertions: `
+assert(#result.evaluations == 1 and result.evaluations[1].uri == '${good.uri}')
+assert(result.cursor ~= nil, 'cursor continues after the valid row')
+local cursor = json.decode(result.cursor:gsub('..', function(pair) return string.char(tonumber(pair, 16)) end))
+assert(cursor.u == '${good.uri}')
+params.cursor = result.cursor
+local next_page = handle()
+assert(#next_page.evaluations == 1 and next_page.evaluations[1].uri == '${last.uri}' and next_page.cursor == nil)
+assert(calls[2].values[2] == '${bad.sort_timestamp}' and calls[2].values[3] == '${bad.uri}')
+assert(calls[5].values[2] == '${good.sort_timestamp}' and calls[5].values[3] == '${good.uri}')
+`,
+  });
+  assert.equal(result.status, 0, `${result.stderr}${result.stdout}`);
+});
+
+test('listEvaluations bounds scans of consecutive invalid rows and returns a continuation cursor', () => {
+  const rows = Array.from({ length: 11 }, (_, index) => ({
+    ...evaluationRow,
+    uri: `at://${authorDid}/${EVALUATION}/bad-${index}`,
+    record: `bad-evaluation-${index}`,
+    record_json: { ...evaluationRecord, evaluators: [{ did: 'not-a-did' }] },
+    sort_timestamp: `2025-01-01T00:00:${String(59 - index).padStart(2, '0')}.000000Z`,
+  }));
+  const queryResults = Array.from({ length: 10 }, (_, index) => [rows[index], rows[index + 1]]);
+  const result = runLua({
+    endpoint: 'listEvaluations', params: { limit: '1' }, queryResults,
+    assertions: `
+assert(#result.evaluations == 0 and result.cursor ~= nil)
+assert(#calls == 10, 'stop after ten query batches instead of scanning indefinitely')
+local token = json.decode(result.cursor:gsub('..', function(pair) return string.char(tonumber(pair, 16)) end))
+assert(token.u == '${rows[9].uri}', 'continuation cursor must advance past the last inspected row')
+`,
+  });
+  assert.equal(result.status, 0, `${result.stderr}${result.stdout}`);
+});
+
 test('listEvaluations accepts 100 entries per filter and a 100-record page', () => {
   const result = runLua({
     endpoint: 'listEvaluations',
