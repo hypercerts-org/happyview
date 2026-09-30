@@ -270,6 +270,130 @@ assert(view.record.tags[1].uri == view.tags[1].uri, 'hydration must not rewrite 
   assert.equal(result.status, 0, `${result.stderr}${result.stdout}`);
 });
 
+test('get/list/search preserve wrong-collection location and tag references as unresolved projections', () => {
+  const locationCollection = 'app.certified.location';
+  const tagCollection = 'org.hypercerts.vocab.tag';
+  const wrongLocationUri = `at://${did}/${tagCollection}/not-a-location`;
+  const wrongTagUri = `at://${did}/${locationCollection}/not-a-tag`;
+  const locationUri = `at://${did}/${locationCollection}/resolved-location`;
+  const tagUri = `at://${did}/${tagCollection}/resolved-tag`;
+  const wrongLocation = { uri: wrongLocationUri, cid: 'wrong-location-cid' };
+  const wrongTag = { uri: wrongTagUri, cid: 'wrong-tag-cid' };
+  const location = { uri: locationUri, cid: 'location-cid' };
+  const tag = { uri: tagUri, cid: 'tag-cid' };
+  const collectionRows = [
+    { uri: collectionUri, did, cid: 'collection-cid-bad', indexed_at: '2025-01-02T00:00:00Z', record: 'wrong-record' },
+    { uri: `at://${did}/${COLLECTION}/other`, did, cid: 'collection-cid-good', indexed_at: '2025-01-01T00:00:00Z', record: 'other-record' },
+  ];
+  const relatedRows = [
+    { uri: location.uri, did, collection: locationCollection, cid: location.cid, indexed_at: '2025-01-02T00:00:00Z', record: 'location-record' },
+    { uri: tag.uri, did, collection: tagCollection, cid: tag.cid, indexed_at: '2025-01-02T00:00:00Z', record: 'tag-record' },
+  ];
+  const records = {
+    'wrong-record': { $type: COLLECTION, title: 'Wrong collection refs', createdAt: '2025-01-01T00:00:00Z', location: wrongLocation, tags: [wrongTag, tag] },
+    'other-record': { $type: COLLECTION, title: 'Other collection', createdAt: '2025-01-01T00:00:00Z', location, tags: [tag] },
+    'location-record': { $type: locationCollection, name: 'Resolved location', createdAt: '2025-01-01T00:00:00Z' },
+    'tag-record': { $type: tagCollection, name: 'Resolved tag', createdAt: '2025-01-01T00:00:00Z' },
+  };
+
+  for (const endpoint of ['getCollection', 'listCollections', 'searchCollections']) {
+    const badView = endpoint === 'getCollection' ? 'result.collection' : 'result.collections[1]';
+    const goodViewAssertions = endpoint === 'getCollection' ? '' : `
+local good = result.collections[2]
+assert(good.location.record.record.name == 'Resolved location')
+assert(good.tags[1].record.record.name == 'Resolved tag')
+`;
+    const source = `
+local NULL = {}
+local ROWS = ${lua(collectionRows)}
+local RELATED = ${lua(relatedRows)}
+local RECORDS = ${lua(records)}
+json = { decode = function(value)
+  if value == 'null' then return NULL end
+  return RECORDS[value]
+end }
+toarray = function(values) return values end
+params = ${endpoint === 'getCollection'
+    ? `{ uri = ${JSON.stringify(collectionRows[0].uri)} }`
+    : endpoint === 'searchCollections' ? "{ search = 'collection' }" : '{}'}
+db = {
+  backend = function() return 'postgres' end,
+  raw = function(sql, values)
+    local target = values[1]
+    if target == '${COLLECTION}' then
+      if '${endpoint}' == 'getCollection' then return { ROWS[1] } end
+      return ROWS
+    end
+    if target == 'app.certified.actor.profile' or target == 'app.certified.actor.organization' then return {} end
+    local matched = {}
+    for _, row in ipairs(RELATED) do
+      if row.collection == target then
+        for index = 2, #values, 2 do
+          if row.uri == values[index] and row.cid == values[index + 1] then
+            matched[#matched + 1] = row
+            break
+          end
+        end
+      end
+    end
+    return matched
+  end,
+}
+dofile('lua/endpoints/${endpoint}.lua')
+local result = handle()
+local bad = ${badView}
+assert(bad.location.uri == ${JSON.stringify(wrongLocation.uri)} and bad.location.cid == 'wrong-location-cid')
+assert(bad.location.record == NULL, 'wrong-collection location reference must project JSON null')
+assert(bad.tags[1].uri == ${JSON.stringify(wrongTag.uri)} and bad.tags[1].cid == 'wrong-tag-cid')
+assert(bad.tags[1].record == NULL, 'wrong-collection tag reference must project JSON null')
+assert(bad.record.location.uri == ${JSON.stringify(wrongLocation.uri)} and bad.record.location.cid == 'wrong-location-cid')
+assert(bad.record.tags[1].uri == ${JSON.stringify(wrongTag.uri)} and bad.record.tags[1].cid == 'wrong-tag-cid')
+${goodViewAssertions}
+`;
+    const result = spawnSync('lua5.4', ['-e', source], { cwd: root, encoding: 'utf8' });
+    assert.equal(result.status, 0, `${endpoint}: ${result.stderr}${result.stdout}`);
+  }
+});
+
+test('collection hydration still rejects missing, non-string, and malformed reference fields', () => {
+  const locationCollection = 'app.certified.location';
+  const validLocationUri = `at://${did}/${locationCollection}/location-one`;
+  const invalidReferences = [
+    { name: 'missing URI', value: { cid: 'location-cid' } },
+    { name: 'non-string URI', value: { uri: 7, cid: 'location-cid' } },
+    { name: 'missing CID', value: { uri: validLocationUri } },
+    { name: 'non-string CID', value: { uri: validLocationUri, cid: 7 } },
+    { name: 'malformed URI', value: { uri: 'not-an-at-uri', cid: 'location-cid' } },
+  ];
+
+  for (const scenario of invalidReferences) {
+    const source = `
+local NULL = {}
+local record = { ["$type"] = '${COLLECTION}', title = 'Invalid reference', createdAt = '2025-01-01T00:00:00Z', location = ${lua(scenario.value)} }
+json = { decode = function(value)
+  if value == 'null' then return NULL end
+  if value == 'collection-record' then return record end
+end }
+toarray = function(values) return values end
+params = { uri = ${JSON.stringify(collectionUri)} }
+db = {
+  backend = function() return 'postgres' end,
+  raw = function(sql, values)
+    if values[1] == '${COLLECTION}' then
+      return { { uri = ${JSON.stringify(collectionUri)}, did = '${did}', cid = 'collection-cid', record = 'collection-record' } }
+    end
+    return {}
+  end,
+}
+dofile('lua/endpoints/getCollection.lua')
+local ok, message = pcall(handle)
+assert(not ok and tostring(message):find('CollectionQueryFailed: indexed collection has an invalid location reference', 1, true), '${scenario.name} must remain a query error')
+`;
+    const result = spawnSync('lua5.4', ['-e', source], { cwd: root, encoding: 'utf8' });
+    assert.equal(result.status, 0, `${scenario.name}: ${result.stderr}${result.stdout}`);
+  }
+});
+
 test('searchCollections binds complete trimmed search text literally', () => {
   const searchInput = '  Forest %_ Initiative  ';
   const search = 'Forest %_ Initiative';

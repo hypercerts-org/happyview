@@ -122,10 +122,14 @@ local function collection_reference(value, field, expected_collection)
     error("CollectionQueryFailed: indexed collection has an invalid " .. field .. " reference", 0)
   end
   local valid, collection = collection_valid_record_uri(value.uri)
-  if not valid or (expected_collection and collection ~= expected_collection) then
+  if not valid then
     error("CollectionQueryFailed: indexed collection has an invalid " .. field .. " reference", 0)
   end
-  return { uri = value.uri, cid = value.cid }
+  return {
+    uri = value.uri,
+    cid = value.cid,
+    matches_collection = not expected_collection or collection == expected_collection,
+  }
 end
 
 local function collection_view(row)
@@ -150,10 +154,12 @@ local function collection_hydrate(views)
     collection_add_unique(author_dids, seen_authors, view.did)
     if view.record.location ~= nil then
       local reference = collection_reference(view.record.location, "location", LOCATION)
-      local key = collection_ref_key(reference.uri, reference.cid)
-      if not seen_locations[key] then
-        seen_locations[key] = true
-        location_refs[#location_refs + 1] = reference
+      if reference.matches_collection then
+        local key = collection_ref_key(reference.uri, reference.cid)
+        if not seen_locations[key] then
+          seen_locations[key] = true
+          location_refs[#location_refs + 1] = reference
+        end
       end
     end
     if view.record.tags ~= nil then
@@ -162,11 +168,13 @@ local function collection_hydrate(views)
       end
       for _, source in ipairs(view.record.tags) do
         local reference = collection_reference(source, "tag", VOCAB_TAG)
-        local key = collection_ref_key(reference.uri, reference.cid)
-        if not seen_tags[key] then
-          seen_tags[key] = true
-          reference.key = key
-          tag_refs[#tag_refs + 1] = reference
+        if reference.matches_collection then
+          local key = collection_ref_key(reference.uri, reference.cid)
+          if not seen_tags[key] then
+            seen_tags[key] = true
+            reference.key = key
+            tag_refs[#tag_refs + 1] = reference
+          end
         end
       end
     end
