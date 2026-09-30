@@ -158,7 +158,7 @@ local data = json.decode(resp.body)
 
 The `xrpc` table lets scripts call other XRPC endpoints — both local and proxied. Available in both queries and procedures.
 
-See the full [XRPC Lua API reference](../api-reference/lua/xrpc-lua-api.md) for `xrpc.query` and `xrpc.procedure`.
+See the full [XRPC Lua API reference](../api-reference/lua/xrpc-lua-api.md) for `xrpc.query`, `xrpc.procedure`, and query-only `xrpc.fail` for typed client errors.
 
 Quick example:
 
@@ -213,17 +213,12 @@ To see log output in stdout, make sure your `RUST_LOG` environment variable incl
 
 ### Error messages
 
-When a script fails, the client receives a generic `500` response:
-
-- `{"error": "script execution failed"}`: covers syntax errors, runtime errors, missing `handle()` function, and errors raised with `error()`
-- `{"error": "script exceeded execution time limit"}`: the script hit the 1,000,000 instruction limit
-
-The **full error message** is logged server-side at error level. Check the server logs to see the actual Lua error, including line numbers and stack traces.
+Ordinary Lua failures (syntax errors, missing `handle()`, and `error()`) return HTTP 500 with `error: "script_error"`; execution timeouts return HTTP 408. Query scripts can instead use [`xrpc.fail`](../api-reference/lua/xrpc-lua-api.md#xrpcfail-query-scripts-only) for declared client errors. Script failures are logged server-side with the Lua error and stack trace.
 
 ### Common mistakes
 
-- **Missing `handle()` function**: Every script must define a global `handle()` function. If it's missing or misspelled, the script fails silently with "script execution failed".
-- **Calling `error()` for expected conditions**: Lua's `error()` triggers a 500 response. For expected conditions like "record not found", return a structured error response instead: `return { error = "not found" }`.
+- **Missing `handle()` function**: Every script must define a global `handle()` function. If it's missing or misspelled, the endpoint returns a 500 `script_error`.
+- **Calling `error()` for expected conditions**: Lua's `error()` triggers a 500 response. In an XRPC query script, use `xrpc.fail("InvalidRequest", "what went wrong and how to fix it")` (400) or `xrpc.fail("RecordNotFound", "record not found")` (404) when the code is declared in the query's Lexicon. Returning `{ error = "not found" }` does not set an error HTTP status.
 - **Infinite loops**: The sandbox enforces a 1,000,000 instruction limit. If your script processes large data sets, paginate with `db.query()` limits instead of loading everything at once.
 - **Forgetting `params` values are strings**: All query string parameters arrive as strings. Use `tonumber(params.limit)` if you need a number.
 

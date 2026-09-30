@@ -1,4 +1,5 @@
 use axum::Json;
+use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
 use mlua::LuaSerdeExt;
 use serde_json::Value;
@@ -22,6 +23,45 @@ use super::db_api;
 use super::http_api;
 use super::record;
 use super::sandbox;
+
+#[derive(Debug)]
+struct LuaQueryXrpcError {
+    status: StatusCode,
+    code: &'static str,
+    message: String,
+}
+
+impl std::fmt::Display for LuaQueryXrpcError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}: {}", self.code, self.message)
+    }
+}
+
+impl std::error::Error for LuaQueryXrpcError {}
+
+fn register_query_error_api(lua: &mlua::Lua) -> mlua::Result<()> {
+    let xrpc: mlua::Table = lua.globals().get("xrpc")?;
+    xrpc.set(
+        "fail",
+        lua.create_function(|_, (code, message): (String, String)| -> mlua::Result<()> {
+            let (status, code) = match code.as_str() {
+                "InvalidRequest" => (StatusCode::BAD_REQUEST, "InvalidRequest"),
+                "RecordNotFound" => (StatusCode::NOT_FOUND, "RecordNotFound"),
+                _ => {
+                    return Err(mlua::Error::runtime(
+                        "xrpc.fail: unsupported code; use InvalidRequest or RecordNotFound",
+                    ));
+                }
+            };
+            Err(mlua::Error::external(LuaQueryXrpcError {
+                status,
+                code,
+                message,
+            }))
+        })?,
+    )?;
+    Ok(())
+}
 
 struct ScriptTimingGuard {
     counters: Arc<Counters>,
@@ -796,6 +836,9 @@ pub async fn execute_query_script(
         return Err(AppError::Internal(error_message));
     }
 
+    register_query_error_api(&lua)
+        .map_err(|e| AppError::Internal(format!("failed to register query error API: {e}")))?;
+
     if let Err(e) =
         atproto_api::register_atproto_api(&lua, state_arc.clone(), claims.map(|c| c.did()))
     {
@@ -1042,7 +1085,13 @@ pub async fn execute_query_script(
             let msg = e.to_string();
             tracing::error!(method, error = %msg, "lua script execution failed");
             let (line, clean_msg) = parse_lua_line(&msg);
-            let app_error = if msg.contains(LUA_AUTH_ERROR_PREFIX)
+            let app_error = if let Some(typed) = e.downcast_ref::<LuaQueryXrpcError>() {
+                AppError::XrpcError {
+                    status: typed.status,
+                    code: typed.code,
+                    message: typed.message.clone(),
+                }
+            } else if msg.contains(LUA_AUTH_ERROR_PREFIX)
                 || clean_msg.contains(LUA_AUTH_ERROR_PREFIX)
             {
                 let auth_msg = clean_msg
@@ -1245,6 +1294,73 @@ mod tests {
 
         assert!(result.is_err());
         assert_eq!(counters.script_executions.load(Ordering::Relaxed), 1);
+    }
+
+    #[tokio::test]
+    async fn query_fail_returns_allowed_xrpc_code_and_http_status() {
+        use http_body_util::BodyExt;
+        for (code, expected_status) in [("InvalidRequest", 400), ("RecordNotFound", 404)] {
+            let state = test_state_with_pool(memory_pool().await);
+            let response = execute_query_script(
+                &state,
+                "com.example.probe",
+                &HashMap::new(),
+                &query_lexicon(),
+                &format!("function handle() xrpc.fail('{code}', 'check the uri') end"),
+                None,
+                None,
+            )
+            .await
+            .unwrap_err()
+            .into_response();
+            assert_eq!(response.status().as_u16(), expected_status);
+            let body = response.into_body().collect().await.unwrap().to_bytes();
+            let body: Value = serde_json::from_slice(&body).unwrap();
+            assert_eq!(
+                body,
+                serde_json::json!({ "error": code, "message": "check the uri" })
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn ordinary_lua_error_cannot_spoof_a_query_client_error() {
+        use http_body_util::BodyExt;
+        let state = test_state_with_pool(memory_pool().await);
+        let response = execute_query_script(
+            &state,
+            "com.example.probe",
+            &HashMap::new(),
+            &query_lexicon(),
+            "function handle() error('InvalidRequest: check the uri') end",
+            None,
+            None,
+        )
+        .await
+        .unwrap_err()
+        .into_response();
+        assert_eq!(response.status().as_u16(), 500);
+        let body = response.into_body().collect().await.unwrap().to_bytes();
+        let body: Value = serde_json::from_slice(&body).unwrap();
+        assert_eq!(body["error"], "script_error");
+    }
+
+    #[tokio::test]
+    async fn query_fail_rejects_codes_outside_the_allowlist() {
+        let state = test_state_with_pool(memory_pool().await);
+        let response = execute_query_script(
+            &state,
+            "com.example.probe",
+            &HashMap::new(),
+            &query_lexicon(),
+            "function handle() xrpc.fail('InternalServerError', 'spoofed') end",
+            None,
+            None,
+        )
+        .await
+        .unwrap_err()
+        .into_response();
+        assert_eq!(response.status().as_u16(), 500);
     }
 
     #[tokio::test]

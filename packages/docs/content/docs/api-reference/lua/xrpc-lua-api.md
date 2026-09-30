@@ -2,7 +2,20 @@
 title: "XRPC Lua API"
 ---
 
-The `xrpc` table provides cross-endpoint XRPC calls. Available in all [Lua scripts](../../guides/lua-scripting.md) — queries, procedures, and [record/label scripts](../../guides/label-scripts).
+The `xrpc` table provides cross-endpoint XRPC calls. `xrpc.query` and `xrpc.procedure` are available in all [Lua scripts](../../guides/lua-scripting.md) — queries, procedures, and [record/label scripts](../../guides/label-scripts). `xrpc.fail` is available only to XRPC query scripts.
+
+## xrpc.fail (query scripts only)
+
+```lua
+function handle()
+  if not params.uri then
+    xrpc.fail("InvalidRequest", "uri is required; provide a record AT-URI")
+  end
+  -- Continue with the query.
+end
+```
+
+Stops the query with a typed XRPC response: `{"error":"InvalidRequest","message":"uri is required; provide a record AT-URI"}` and HTTP 400. Only `InvalidRequest` (400) and `RecordNotFound` (404) are accepted; use codes declared by the query's Lexicon. An unsupported code or invalid arguments cause a Lua runtime error (500). Ordinary `error()` calls remain script errors (500), even when their message begins with `InvalidRequest:`. This API is not available in procedure or record/label scripts.
 
 ## xrpc.query
 
