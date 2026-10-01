@@ -5,6 +5,29 @@ import { copyFile, mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { resolveInstallConfig } from './installer.js';
+
+test('installer prompts for missing URL and token, hiding the token input', async () => {
+  const prompts = [];
+  const answers = ['https://happyview.example', 'hv_admin-token'];
+  const config = await resolveInstallConfig({
+    env: {},
+    isTTY: true,
+    ask: async (label, { hidden }) => {
+      prompts.push({ label, hidden });
+      return answers.shift();
+    },
+  });
+
+  assert.deepEqual(config, {
+    baseUrl: 'https://happyview.example',
+    token: 'hv_admin-token',
+  });
+  assert.deepEqual(prompts, [
+    { label: 'HappyView URL', hidden: false },
+    { label: 'HappyView admin token', hidden: true },
+  ]);
+});
 
 test('CLI requires a nonblank admin token and does not fall back to a session cookie', () => {
   const script = fileURLToPath(new URL('./installer.js', import.meta.url));
@@ -20,6 +43,22 @@ test('CLI requires a nonblank admin token and does not fall back to a session co
     assert.match(child.stderr, /HAPPYVIEW_ADMIN_TOKEN.*README/);
     assert.doesNotMatch(child.stderr, /legacy-secret|manifest\.json/);
   }
+});
+
+test('CLI reports an actionable error for a malformed HappyView admin URL', () => {
+  const script = fileURLToPath(new URL('./installer.js', import.meta.url));
+  const child = spawnSync(process.execPath, [script], {
+    encoding: 'utf8',
+    env: {
+      PATH: process.env.PATH ?? '',
+      HAPPYVIEW_BASE_URL: 'not a URL',
+      HAPPYVIEW_ADMIN_TOKEN: 'hv_cli-test-token',
+    },
+  });
+
+  assert.equal(child.status, 1);
+  assert.equal(child.stdout, '');
+  assert.equal(child.stderr, 'HappyView admin URL must be a valid HTTP(S) URL\n');
 });
 
 test('importing the installer does not run the CLI or require configuration', () => {

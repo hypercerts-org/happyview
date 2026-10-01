@@ -1,0 +1,119 @@
+{
+  "assets": [
+    {
+      "kind": "lexicon",
+      "id": "app.certified.actor.organization",
+      "config": {
+        "backfill": true
+      },
+      "dependsOn": [],
+      "registrationGroup": "location-record-schema-sources",
+      "packagePath": "lexicons/app/certified/actor/organization.json"
+    },
+    {
+      "kind": "lexicon",
+      "id": "app.certified.actor.profile",
+      "config": {
+        "backfill": true
+      },
+      "dependsOn": [],
+      "registrationGroup": "location-record-schema-sources",
+      "packagePath": "lexicons/app/certified/actor/profile.json"
+    },
+    {
+      "kind": "lexicon",
+      "id": "app.certified.location",
+      "config": {
+        "backfill": true
+      },
+      "dependsOn": [],
+      "registrationGroup": "location-record-schema-sources",
+      "packagePath": "lexicons/app/certified/location.json"
+    },
+    {
+      "kind": "lexicon",
+      "id": "app.certified.signature.defs",
+      "config": {
+        "backfill": false
+      },
+      "dependsOn": [],
+      "registrationGroup": "location-record-schema-sources",
+      "packagePath": "lexicons/app/certified/signature/defs.json"
+    },
+    {
+      "kind": "lexicon",
+      "id": "org.hypercerts.defs",
+      "config": {
+        "backfill": false
+      },
+      "dependsOn": [],
+      "registrationGroup": "location-record-schema-sources",
+      "packagePath": "lexicons/org/hypercerts/defs.json"
+    },
+    {
+      "kind": "lexicon",
+      "id": "org.hypercerts.api.defs",
+      "path": "../../lexicons/org.hypercerts.api.defs.json",
+      "config": {
+        "backfill": false
+      },
+      "dependsOn": [
+        "app.certified.actor.organization",
+        "app.certified.actor.profile"
+      ]
+    },
+    {
+      "kind": "lexicon",
+      "id": "app.certified.location.getLocation",
+      "path": "../../lexicons/app.certified.location.getLocation.json",
+      "config": {
+        "backfill": false,
+        "target_collection": "app.certified.location"
+      },
+      "dependsOn": [
+        "app.certified.location",
+        "org.hypercerts.api.defs"
+      ]
+    },
+    {
+      "kind": "lexicon",
+      "id": "app.certified.location.listLocations",
+      "path": "../../lexicons/app.certified.location.listLocations.json",
+      "config": {
+        "backfill": false,
+        "target_collection": "app.certified.location"
+      },
+      "dependsOn": [
+        "app.certified.location.getLocation"
+      ]
+    },
+    {
+      "kind": "script",
+      "id": "xrpc.query:app.certified.location.getLocation",
+      "path": "../../lua/endpoints/getLocation.lua",
+      "sourcePath": "../../lua/src/getLocation.lua",
+      "sharedSourcePath": "../../lua/shared/location.lua",
+      "config": {
+        "script_type": "lua",
+        "description": "Location API handler"
+      },
+      "dependsOn": [
+        "app.certified.location.getLocation"
+      ]
+    },
+    {
+      "kind": "script",
+      "id": "xrpc.query:app.certified.location.listLocations",
+      "path": "../../lua/endpoints/listLocations.lua",
+      "sourcePath": "../../lua/src/listLocations.lua",
+      "sharedSourcePath": "../../lua/shared/location.lua",
+      "config": {
+        "script_type": "lua",
+        "description": "Location API handler"
+      },
+      "dependsOn": [
+        "app.certified.location.listLocations"
+      ]
+    }
+  ]
+}
