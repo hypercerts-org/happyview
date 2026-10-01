@@ -1,22 +1,60 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { encode } from '@atcute/cbor';
 import * as CID from '@atcute/cid';
 import { isValidDid, isValidTid } from '@atproto/syntax';
 import { locationRecords, profileRecords, organizationRecords, seedSql } from './records.js';
+import {
+  actorFollowDids,
+  actorFollowOrganizationRecords,
+  actorFollowProfileRecords,
+  actorFollowRecords,
+} from './actor-follows.js';
 
 test('fixtures have consistent full AT-URIs, valid DID/TID/CID identifiers, types, and fixed timestamps', () => {
-  const records = [...locationRecords, ...profileRecords, ...organizationRecords];
+  const records = [
+    ...locationRecords, ...profileRecords, ...organizationRecords,
+    ...actorFollowRecords, ...actorFollowProfileRecords, ...actorFollowOrganizationRecords,
+  ];
   for (const row of records) {
     assert.equal(row.uri, `at://${row.did}/${row.collection}/${row.rkey}`);
     assert.equal(row.record.$type, row.collection);
     assert.equal(isValidDid(row.did), true);
-    if (row.collection === 'app.certified.location') assert.equal(isValidTid(row.rkey), true);
+    if (row.collection === 'app.certified.location' || row.collection === 'app.certified.graph.follow') assert.equal(isValidTid(row.rkey), true);
     const cid = CID.fromString(row.cid);
     assert.equal(cid.version, 1);
     assert.equal(cid.codec, 0x71);
     assert.equal(cid.digest.codec, 0x12);
     assert.equal(cid.digest.contents.length, 32);
     assert.equal(row.indexedAt, '2025-01-02T03:04:05.000Z');
+  }
+});
+
+test('actor-follow fixtures isolate publishers and cover date precedence, URI ties, and sparse sidecars', async () => {
+  const publishers = new Set([actorFollowDids.publisher, actorFollowDids.otherPublisher]);
+  assert.equal(publishers.size, 2);
+  assert.equal(new Set(actorFollowRecords.map(({ uri }) => uri)).size, 7);
+  assert.deepEqual(
+    actorFollowRecords.filter(({ did, record }) => did === actorFollowDids.publisher && record.subject === actorFollowDids.primarySubject)
+      .map(({ rkey }) => rkey).sort(),
+    ['3jzfcijpj2z2a', '3jzfcijpj2z2b', '3jzfcijpj2z2c'],
+  );
+  const primaryPair = new Map(actorFollowRecords
+    .filter(({ did, record }) => did === actorFollowDids.publisher && record.subject === actorFollowDids.primarySubject)
+    .map((record) => [record.rkey, record]));
+  assert.equal(primaryPair.get('3jzfcijpj2z2a').record.createdAt, '2025-01-04T00:00:00.000Z');
+  assert.equal(primaryPair.get('3jzfcijpj2z2b').record.createdAt, '2025-01-01T00:00:00.000Z');
+  assert.equal(primaryPair.get('3jzfcijpj2z2c').record.createdAt, '2025-01-01T00:00:00.000Z');
+  assert.ok(primaryPair.get('3jzfcijpj2z2b').uri < primaryPair.get('3jzfcijpj2z2c').uri);
+  assert.deepEqual(Object.keys(primaryPair.get('3jzfcijpj2z2b').record.via).sort(), ['cid', 'uri']);
+  assert.deepEqual(actorFollowProfileRecords.map(({ did }) => did).sort(), [
+    actorFollowDids.primarySubject, actorFollowDids.publisher, actorFollowDids.secondSubject,
+  ].sort());
+  assert.deepEqual(actorFollowOrganizationRecords.map(({ did }) => did).sort(), [
+    actorFollowDids.primarySubject, actorFollowDids.publisher,
+  ].sort());
+  for (const row of [...actorFollowRecords, ...actorFollowProfileRecords, ...actorFollowOrganizationRecords]) {
+    assert.equal(CID.toString(await CID.create(0x71, encode(row.record))), row.cid);
   }
 });
 

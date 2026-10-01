@@ -1,0 +1,70 @@
+{
+  "lexicon": 1,
+  "id": "app.certified.graph.getFollow",
+  "defs": {
+    "main": {
+      "type": "query",
+      "description": "Returns the earliest indexed follow record for one actor-to-actor relationship, or null when no matching relationship is indexed. Authentication is not required.",
+      "parameters": {
+        "type": "params",
+        "required": ["actor", "subject"],
+        "properties": {
+          "actor": {
+            "type": "string",
+            "format": "did",
+            "description": "DID of the actor who published the follow record. Required."
+          },
+          "subject": {
+            "type": "string",
+            "format": "did",
+            "description": "DID of the actor named as the follow record's subject. Required."
+          }
+        }
+      },
+      "output": {
+        "encoding": "application/json",
+        "schema": { "type": "ref", "ref": "#output" }
+      },
+      "errors": [
+        { "name": "InvalidRequest", "description": "A required DID is invalid, repeated, or accompanied by an unknown parameter." }
+      ]
+    },
+    "followRecordView": {
+      "type": "object",
+      "description": "Raw indexed follow record view, including the DID that published the relationship.",
+      "required": ["uri", "cid", "indexedAt", "did", "record"],
+      "properties": {
+        "uri": { "type": "string", "format": "at-uri" },
+        "cid": { "type": "string", "format": "cid" },
+        "indexedAt": { "type": "string", "format": "datetime" },
+        "did": { "type": "string", "format": "did" },
+        "record": { "type": "ref", "ref": "app.certified.graph.follow" }
+      }
+    },
+    "actorFollowView": {
+      "type": "object",
+      "description": "The displayed actor and the raw follow record representing its relationship.",
+      "required": ["did", "profile", "organization", "follow"],
+      "nullable": ["profile", "organization"],
+      "properties": {
+        "did": { "type": "string", "format": "did" },
+        "profile": { "type": "ref", "ref": "org.hypercerts.api.defs#profileView" },
+        "organization": { "type": "ref", "ref": "org.hypercerts.api.defs#organizationView" },
+        "follow": { "type": "ref", "ref": "#followRecordView" }
+      }
+    },
+    "output": {
+      "type": "object",
+      "description": "The raw representative follow record, or explicit null when the relationship is not indexed.",
+      "required": ["follow"],
+      "nullable": ["follow"],
+      "properties": {
+        "follow": {
+          "type": "ref",
+          "ref": "#followRecordView",
+          "description": "The earliest-created indexed record for the actor and subject pair, with URI and publisher metadata."
+        }
+      }
+    }
+  }
+}

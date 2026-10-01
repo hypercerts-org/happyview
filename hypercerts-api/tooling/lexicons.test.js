@@ -19,6 +19,7 @@ test('the full validation Lexicon closure resolves locally while only selected p
   assert.deepEqual(deployedPackageAssets.map(({ id }) => id).sort(), [
     'app.certified.actor.organization',
     'app.certified.actor.profile',
+    'app.certified.graph.follow',
     'app.certified.location',
     'app.certified.signature.defs',
     'org.hypercerts.defs',
@@ -62,6 +63,20 @@ test('location query result refs resolve to shared actor views and getLocation-o
   assert.equal(getLocation.defs.output.properties.location.ref, 'lex:app.certified.location.getLocation#locationView');
   assert.equal(listLocations.defs.output.properties.locations.items.ref, 'lex:app.certified.location.getLocation#locationView');
   assert.equal(lexicons.getDefOrThrow('app.certified.location.getLocation#locationView').type, 'object');
+});
+
+test('follow query Lexicons declare all required DID parameters', async () => {
+  const { documents } = await validatePackageLexicons();
+  const byId = new Map(documents.map((document) => [document.id, document]));
+  assert.deepEqual({
+    getFollow: byId.get('app.certified.graph.getFollow').defs.main.parameters.required,
+    listActorFollowers: byId.get('app.certified.graph.listActorFollowers').defs.main.parameters.required,
+    listActorFollowing: byId.get('app.certified.graph.listActorFollowing').defs.main.parameters.required,
+  }, {
+    getFollow: ['actor', 'subject'],
+    listActorFollowers: ['actor'],
+    listActorFollowing: ['actor'],
+  });
 });
 
 test('installed ATProto validator accepts package language, transitive refs, and real fixture records', async () => {

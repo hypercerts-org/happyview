@@ -92,7 +92,13 @@
       "id": "xrpc.query:app.certified.location.getLocation",
       "path": "../../lua/endpoints/getLocation.lua",
       "sourcePath": "../../lua/src/getLocation.lua",
-      "sharedSourcePath": "../../lua/shared/location.lua",
+      "sharedSourcePaths": [
+        "../../lua/shared/query.lua",
+        "../../lua/shared/recordIdentifier.lua",
+        "../../lua/shared/recordView.lua",
+        "../../lua/shared/actorView.lua",
+        "../../lua/shared/location.lua"
+      ],
       "config": {
         "script_type": "lua",
         "description": "Location API handler"
@@ -106,7 +112,14 @@
       "id": "xrpc.query:app.certified.location.listLocations",
       "path": "../../lua/endpoints/listLocations.lua",
       "sourcePath": "../../lua/src/listLocations.lua",
-      "sharedSourcePath": "../../lua/shared/location.lua",
+      "sharedSourcePaths": [
+        "../../lua/shared/query.lua",
+        "../../lua/shared/recordIdentifier.lua",
+        "../../lua/shared/listQuery.lua",
+        "../../lua/shared/recordView.lua",
+        "../../lua/shared/actorView.lua",
+        "../../lua/shared/location.lua"
+      ],
       "config": {
         "script_type": "lua",
         "description": "Location API handler"

@@ -1,25 +1,3 @@
-local function valid_datetime(value)
-  local year, month, day, hour, minute, second, suffix = value:match(
-    "^(%d%d%d%d)%-(%d%d)%-(%d%d)T(%d%d):(%d%d):(%d%d)(.*)$")
-  if not year then return false end
-  year, month, day = tonumber(year), tonumber(month), tonumber(day)
-  hour, minute, second = tonumber(hour), tonumber(minute), tonumber(second)
-  if month < 1 or month > 12 or hour > 23 or minute > 59 or second > 59 then return false end
-  local leap = year % 4 == 0 and (year % 100 ~= 0 or year % 400 == 0)
-  local month_days = { 31, leap and 29 or 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31 }
-  if day < 1 or day > month_days[month] then return false end
-  local fraction, zone = suffix:match("^(%.%d+)(Z)$")
-  if not fraction then fraction, zone = suffix:match("^(%.%d+)([+-]%d%d:%d%d)$") end
-  if not fraction then zone = suffix:match("^(Z)$") end
-  if not zone then zone = suffix:match("^([+-]%d%d:%d%d)$") end
-  if not zone or zone == "-00:00" then return false end
-  if zone ~= "Z" then
-    local zh, zm = zone:match("^[+-](%d%d):(%d%d)$")
-    if not zh or tonumber(zh) > 23 or tonumber(zm) > 59 then return false end
-  end
-  return true
-end
-
 local function array(params, key, validate, description, max_bytes)
   local value = params[key]
   if value == nil then return nil end
@@ -52,11 +30,6 @@ local function add_in(where, params, column, values)
   where[#where + 1] = column .. " IN (" .. table.concat(placeholders, ",") .. ")"
 end
 
-local function cursor_encode(value)
-  local encoded = json.encode(value)
-  return (encoded:gsub(".", function(char) return string.format("%02x", string.byte(char)) end))
-end
-
 local function cursor_decode(token, direction)
   if not token then return nil end
   if #token % 2 ~= 0 or token:find("[^0-9a-f]") then invalid("cursor is malformed") end
@@ -69,7 +42,7 @@ local function cursor_decode(token, direction)
   for key in pairs(value) do
     if key ~= "v" and key ~= "d" and key ~= "t" and key ~= "u" then invalid("cursor is malformed") end
   end
-  if not valid_uri(value.u) or not valid_datetime(value.t) then invalid("cursor is malformed") end
+  if not valid_location_uri(value.u) or not valid_datetime(value.t) then invalid("cursor is malformed") end
   return value
 end
 
@@ -98,7 +71,7 @@ local function query_locations(filters, limit, cursor, direction)
   local more = #rows > limit
   if more then rows[#rows] = nil end
   local views = {}
-  for _, row in ipairs(rows) do views[#views + 1] = row_view(row) end
+  for _, row in ipairs(rows) do views[#views + 1] = record_view(row) end
   hydrate(views)
   local next_cursor
   if more then
@@ -111,14 +84,10 @@ end
 local function list_locations()
   keys_only(params, { authors = true, uris = true, locationTypes = true, limit = true, cursor = true, sortDirection = true })
   local authors = array(params, "authors", valid_did, "valid DIDs")
-  local uris = array(params, "uris", valid_uri, "full app.certified.location AT-URIs with DID authorities")
+  local uris = array(params, "uris", valid_location_uri, "full app.certified.location AT-URIs with DID authorities")
   local types = array(params, "locationTypes", nil, nil, 20)
-  local limit_value = scalar(params, "limit")
-  if limit_value and not limit_value:match("^%d+$") then invalid("limit must be an integer from 1 through 100") end
-  local limit = limit_value and tonumber(limit_value) or 25
-  if not limit or limit % 1 ~= 0 or limit < 1 or limit > 100 then invalid("limit must be an integer from 1 through 100") end
-  local direction = scalar(params, "sortDirection") or "desc"
-  if direction ~= "asc" and direction ~= "desc" then invalid("sortDirection must be 'asc' or 'desc'") end
+  local limit = parse_list_limit(params)
+  local direction = parse_sort_direction(params)
   local cursor = cursor_decode(scalar(params, "cursor"), direction)
   local views, next_cursor = query_locations({ authors = authors, uris = uris, locationTypes = types }, limit, cursor, direction)
   local response = { locations = toarray(views) }

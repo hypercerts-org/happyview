@@ -351,7 +351,7 @@ function validateAssetEntry(entry, modulePath, assetIndex, owners) {
   return /** @type {ValidatedManifestAsset} */ (candidate);
 }
 
-/* eslint-disable no-param-reassign -- the caller passes a private copy to populate with its loaded source. */
+/* eslint-disable no-param-reassign -- loadAssetSource passes a private copy to populate with its loaded source. */
 /** @param {LexiconManifestAsset & { lexicon_json?: unknown }} asset @param {string} root */
 async function loadLexiconAssetSource(asset, root) {
   asset.lexicon_json = await readLexiconSource(asset, root);
@@ -382,18 +382,19 @@ function assetSourcePath(asset) {
 
 /** @param {ValidatedManifestAsset & { lexicon_json?: unknown; body?: string }} asset @param {string} modulePath @param {string} root @returns {Promise<LoadedAsset>} */
 async function loadAssetSource(asset, modulePath, root) {
+  const loadedAsset = { ...asset };
   try {
-    if (asset.kind === 'lexicon') {
-      await loadLexiconAssetSource(asset, root);
+    if (loadedAsset.kind === 'lexicon') {
+      await loadLexiconAssetSource(loadedAsset, root);
     } else {
-      await loadScriptAssetSource(asset, root);
+      await loadScriptAssetSource(loadedAsset, root);
     }
+    return /** @type {LoadedAsset} */ (loadedAsset);
   } catch (cause) {
     // Node filesystem and package-source operations throw Error instances; preserve their original message interpolation.
     const detail = /** @type {Error} */ (cause).message;
-    throw new Error(`Asset ${asset.id} in module ${modulePath}: source ${assetSourcePath(asset)} is missing, invalid or empty (${detail}); fix the declaration or source before installing`, { cause });
+    throw new Error(`Asset ${loadedAsset.id} in module ${modulePath}: source ${assetSourcePath(loadedAsset)} is missing, invalid or empty (${detail}); fix the declaration or source before installing`, { cause });
   }
-  return /** @type {LoadedAsset} */ (asset);
 }
 
 /** @param {string} modulePath @param {string} file @param {Map<string, string>} owners @returns {Promise<LoadedAsset[]>} */
@@ -402,8 +403,7 @@ async function loadModuleAssets(modulePath, file, owners) {
   /** @type {LoadedAsset[]} */
   const assets = [];
   for (const entry of module.assets) {
-    const asset = { ...entry };
-    assets.push(await loadAssetSource(asset, modulePath, path.dirname(file)));
+    assets.push(await loadAssetSource(entry, modulePath, path.dirname(file)));
   }
   return assets;
 }
