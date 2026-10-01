@@ -4,6 +4,7 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { seedSql, locationRecords, profileRecords, organizationRecords } from '../tests/fixtures/records.js';
 import { actorFollowRecords, actorFollowProfileRecords, actorFollowOrganizationRecords } from '../tests/fixtures/actor-follows.js';
+import { activityFixtureRows } from '../tests/fixtures/activities.js';
 import { badDateSeedSql } from '../tests/fixtures/bad-dates.js';
 import { badDateLocations } from '../tests/fixtures/bad-location-dates.js';
 
@@ -37,6 +38,7 @@ function sqlInput(statements, types = 'text, text, text, text, jsonb, text, text
 export function buildSeedInput(env = process.env, rows = [
   ...locationRecords, ...profileRecords, ...organizationRecords,
   ...actorFollowRecords, ...actorFollowProfileRecords, ...actorFollowOrganizationRecords,
+  ...activityFixtureRows,
 ]) {
   disposableTarget(env);
   return sqlInput(seedSql(rows, { disposableTestTarget: true }));
