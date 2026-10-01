@@ -21,6 +21,9 @@ export const profileRecords = await Promise.all([
     displayName: 'Test Publisher', description: 'Location API deterministic fixture', createdAt: indexedAt,
   }),
   row(collections.profile, 'self', { displayName: 'Profile-only publisher', createdAt: indexedAt }, 'did:web:profile-only.example'),
+  row(collections.profile, 'self', {
+    displayName: 'Unlisted Forest %_ Network', description: 'Community restoration group', createdAt: indexedAt,
+  }, 'did:web:unlisted-organization.example'),
 ]);
 
 export const organizationRecords = await Promise.all([
@@ -28,6 +31,9 @@ export const organizationRecords = await Promise.all([
     organizationType: ['nonprofit'], visibility: 'public', createdAt: indexedAt,
   }),
   row(collections.organization, 'self', { organizationType: ['community'], createdAt: indexedAt }, 'did:web:organization-only.example'),
+  row(collections.organization, 'self', {
+    organizationType: ['nonprofit'], visibility: 'unlisted', createdAt: indexedAt,
+  }, 'did:web:unlisted-organization.example'),
 ]);
 
 export const locationRecords = await Promise.all([
