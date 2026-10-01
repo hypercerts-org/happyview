@@ -1,6 +1,6 @@
 std = "lua54"
 globals = { "handle" }
-read_globals = { "db", "json", "params", "toarray" }
+read_globals = { "db", "env", "http", "json", "params", "toarray" }
 not_globals = {
   "io", "debug", "package", "require", "dofile", "loadfile", "load", "collectgarbage",
   "os.execute", "os.exit", "os.getenv", "os.remove", "os.rename", "os.setlocale", "os.tmpname",

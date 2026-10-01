@@ -1,20 +1,24 @@
 {
-  "name": "hypercerts-location-actor-follow-api",
+  "name": "hypercerts-location-actor-follow-profile-api",
   "collection": "app.certified.location",
   "targetHappyViewRevision": "a2f347e605d7cd9c11669b320e43c10dbfe982e3",
   "runtimeCompatibility": "compatible-at-target-revision",
-  "status": "handlers-implemented-runtime-validation-passed-at-target-revision",
+  "status": "handlers-implemented; location-and-actor-follow-runtime-validated-at-target-revision",
   "handlerStatus": {
     "getLocation": "implemented",
     "listLocations": "implemented",
     "getFollow": "implemented",
     "listActorFollowers": "implemented",
-    "listActorFollowing": "implemented"
+    "listActorFollowing": "implemented",
+    "getProfile": "implemented",
+    "getProfiles": "implemented",
+    "listProfiles": "implemented",
+    "searchProfiles": "implemented"
   },
   "authentication": {
     "decision": "public",
     "unresolved": false,
-    "note": "The location and actor-follow query endpoints expose public record reads and require no caller authentication."
+    "note": "The location, actor-follow, and actor-profile query endpoints expose public record reads and require no caller authentication."
   },
   "luaBuild": {
     "command": "pnpm build:lua",
@@ -27,14 +31,21 @@
       "lua/shared/location.lua",
       "lua/shared/actorFollow.lua",
       "lua/shared/actorFollowLookup.lua",
-      "lua/shared/actorFollowList.lua"
+      "lua/shared/actorFollowList.lua",
+      "lua/shared/profile.lua",
+      "lua/shared/profileLookup.lua",
+      "lua/shared/profileList.lua"
     ],
     "endpointSources": [
       "lua/src/getLocation.lua",
       "lua/src/listLocations.lua",
       "lua/src/getFollow.lua",
       "lua/src/listActorFollowers.lua",
-      "lua/src/listActorFollowing.lua"
+      "lua/src/listActorFollowing.lua",
+      "lua/src/getProfile.lua",
+      "lua/src/getProfiles.lua",
+      "lua/src/listProfiles.lua",
+      "lua/src/searchProfiles.lua"
     ],
     "installedHandlers": "lua/endpoints/"
   },
@@ -74,6 +85,22 @@
     {
       "id": "app.certified.actor.profile",
       "packagePath": "lexicons/app/certified/actor/profile.json"
+    },
+    {
+      "id": "app.certified.actor.getProfile",
+      "path": "lexicons/app.certified.actor.getProfile.json"
+    },
+    {
+      "id": "app.certified.actor.getProfiles",
+      "path": "lexicons/app.certified.actor.getProfiles.json"
+    },
+    {
+      "id": "app.certified.actor.listProfiles",
+      "path": "lexicons/app.certified.actor.listProfiles.json"
+    },
+    {
+      "id": "app.certified.actor.searchProfiles",
+      "path": "lexicons/app.certified.actor.searchProfiles.json"
     },
     {
       "id": "app.certified.actor.organization",
@@ -198,6 +225,7 @@
   ],
   "modules": [
     "modules/location/manifest.json",
-    "modules/actor-follow/manifest.json"
+    "modules/actor-follow/manifest.json",
+    "modules/profile/manifest.json"
   ]
 }
